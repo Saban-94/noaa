@@ -193,12 +193,13 @@ export const processChatMessage = async (message: string, sender: string) => {
     
     2. אם ההודעה היא בקשת הזמנה חדשה שצריך להוסיף לסידור, חלץ פרטים.
     
-    3. אם ההודעה היא שאלה כללית ל"נועה", ענה עליה.
+    3. אם ההודעה היא שאלה כללית ל"נועה", ענה עליה בסגנון של ח. סבן ("נשמה", "שותף", "הכל בשליטה").
     
     תחזיר אובייקט JSON עם:
     - intent: "transfer" / "order" / "chat" / "none"
     - data: הפרטים שחילצת
-    - suggestion: הצעה לפעולה (טקסט קצר)
+    - suggestion: הצעה לפעולה (טקסט קצר ומקצועי)
+    - answer: תשובה ישירה (אם זה chat intent)
   `;
 
   const response = await ai.models.generateContent({
@@ -209,7 +210,19 @@ export const processChatMessage = async (message: string, sender: string) => {
     }
   });
 
-  return JSON.parse(response.text || "{}");
+  const aiResult = JSON.parse(response.text || "{}");
+
+  // Post-process for ETA if it's a transfer
+  if (aiResult.intent === 'transfer') {
+    const source = aiResult.data.source === 'החרש' ? 'החרש 10, הוד השרון' : 'התלמיד 6, הוד השרון';
+    const dest = aiResult.data.target === 'החרש' ? 'החרש 10, הוד השרון' : 'התלמיד 6, הוד השרון';
+    const history = await fetchOrders();
+    const etaStr = await predictOrderEta({ destination: dest, warehouse: aiResult.data.source } as any, history);
+    aiResult.data.eta = etaStr;
+    aiResult.suggestion = `בצע העברה: ${aiResult.data.items} (ETA: ${etaStr || 'מחשבת...'})`;
+  }
+
+  return aiResult;
 };
 
 export const analyzePdfContent = async (fileId: string) => {

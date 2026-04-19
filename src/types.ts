@@ -18,6 +18,7 @@ export interface Order {
   updatedAt?: Timestamp;
   createdBy?: string;
   source?: 'manual' | 'import' | 'chat';
+  notes?: string;
 }
 
 export interface ChatMessage {

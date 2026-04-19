@@ -120,10 +120,29 @@ export const SabanMessenger = () => {
 
       // 2. Process with AI for Suggestions (only if it's a manager message or everyone)
       const aiResponse = await processChatMessage(messageText, auth.currentUser.displayName || 'אחי');
-      if (aiResponse.intent !== 'none' && aiResponse.intent !== 'chat') {
+      
+      if (aiResponse.intent === 'chat' && aiResponse.answer) {
+        await addDoc(collection(db, 'messages'), {
+          text: aiResponse.answer,
+          senderId: 'system',
+          senderName: 'נועה',
+          timestamp: serverTimestamp(),
+          visibility: 'everyone',
+          type: 'system'
+        });
+      } else if (aiResponse.intent === 'transfer' && aiResponse.data.eta) {
+        const { source, target, eta } = aiResponse.data;
+        await addDoc(collection(db, 'messages'), {
+          text: `נועה: נשמה, לבקשתך - העברה מ${source} תגיע ל${target} בעוד כ-${eta} דקות לפי עומסי התנועה אחי. הכל בשליטה.`,
+          senderId: 'system',
+          senderName: 'נועה',
+          timestamp: serverTimestamp(),
+          visibility: 'everyone',
+          type: 'system'
+        });
         setSuggestion(aiResponse);
-      } else {
-        setSuggestion(aiResponse.intent === 'chat' ? aiResponse : null);
+      } else if (aiResponse.intent !== 'none' && aiResponse.intent !== 'chat') {
+        setSuggestion(aiResponse);
       }
     } catch (err) {
       console.error("Chat error:", err);
@@ -165,22 +184,27 @@ export const SabanMessenger = () => {
     setIsProcessing(true);
     try {
       await createReminder({
-        title: `משימה מהצ'אט: ${msg.text.substring(0, 50)}...`,
-        description: `נשלח ע"י ${msg.senderName}: ${msg.text}`,
+        title: `משימה מ${msg.senderName}`,
+        description: `הודעת צ'אט: ${msg.text}`,
         dueDate: format(new Date(), 'yyyy-MM-dd'),
         dueTime: format(new Date(), 'HH:mm'),
         isCompleted: false,
         userId: auth.currentUser.uid
       });
       
-      await addDoc(collection(db, 'messages'), {
-        text: `נועה: אחי, הפכתי את ההודעה של ${msg.senderName} למשימה לביצוע. הכל בלוח שלך.`,
+      const successMsg = await addDoc(collection(db, 'messages'), {
+        text: `נועה: שותף, הפכתי את ההודעה של ${msg.senderName} למשימה לביצוע. הכל בלוח של ראמי.`,
         senderId: 'system',
         senderName: 'נועה',
         timestamp: serverTimestamp(),
         visibility: 'everyone',
         type: 'system'
       });
+      
+      setTimeout(() => {
+        deleteDoc(doc(db, 'messages', successMsg.id));
+      }, 5000);
+
     } catch (err) {
       console.error("Task error:", err);
     } finally {
@@ -203,7 +227,7 @@ export const SabanMessenger = () => {
         
         // Add system message
         await addDoc(collection(db, 'messages'), {
-          text: `נועה: נשמה, פתחתי בקשת העברה: ${items} מ${source} ל${target}. הכל בשליטה אחי.`,
+          text: `נועה: בקשת העברה בוצעה אחי. ${items} יוצא לדרך מ${source}.`,
           senderId: 'system',
           senderName: 'נועה',
           timestamp: serverTimestamp(),
@@ -216,11 +240,12 @@ export const SabanMessenger = () => {
           ...suggestion.data,
           source: 'chat',
           status: 'pending',
-          date: format(new Date(), 'yyyy-MM-dd')
+          date: format(new Date(), 'yyyy-MM-dd'),
+          notes: `נוצר מהצ'אט על ידי ${messages.find(m => m.text.includes(suggestion.data.customerName))?.senderName || 'מישהו'}`
         });
         
         await addDoc(collection(db, 'messages'), {
-          text: `נועה: שותף, ההזמנה של ${suggestion.data.customerName} הוזרקה לסידור העבודה.`,
+          text: `נועה: שותף, ההזמנה של ${suggestion.data.customerName} הוזרקה לסידור העבודה. הכל בשליטה.`,
           senderId: 'system',
           senderName: 'נועה',
           timestamp: serverTimestamp(),
@@ -242,6 +267,22 @@ export const SabanMessenger = () => {
       await deleteDoc(doc(db, 'messages', id));
     } catch (err) {
       console.error("Delete error:", err);
+    }
+  };
+
+  // Long press for task creation
+  const longPressTimer = useRef<NodeJS.Timeout | null>(null);
+  const startLongPress = (msg: ChatMessage) => {
+    longPressTimer.current = setTimeout(() => {
+      handleCreateTaskFromMessage(msg);
+      // Haptic feedback if available
+      if (window.navigator?.vibrate) window.navigator.vibrate(50);
+    }, 800);
+  };
+  const stopLongPress = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
     }
   };
 
@@ -305,8 +346,12 @@ export const SabanMessenger = () => {
                   {showAvatar && !isMe && !isSystem && (
                     <span className="text-[10px] font-bold text-gray-500 mb-1 px-2">{msg.senderName}</span>
                   )}
-                  <div className={`
-                    relative px-4 py-3 rounded-2xl shadow-sm text-sm
+                  <div 
+                    onPointerDown={() => !isSystem && startLongPress(msg)}
+                    onPointerUp={stopLongPress}
+                    onPointerLeave={stopLongPress}
+                    className={`
+                    relative px-4 py-3 rounded-2xl shadow-sm text-sm active:scale-95 transition-all select-none
                     ${isMe ? 'bg-sky-600 text-white rounded-tr-none' : isSystem ? 'bg-white border-2 border-sky-200 text-sky-800 italic text-center w-full shadow-sky-100' : 'bg-white text-gray-800 border border-sky-50 rounded-tl-none'}
                   `}>
                     {msg.visibility === 'managers' && (

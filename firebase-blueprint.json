@@ -19,7 +19,9 @@
         "eta": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" },
-        "createdBy": { "type": "string" }
+        "createdBy": { "type": "string" },
+        "source": { "type": "string", "enum": ["manual", "import", "chat"] },
+        "notes": { "type": "string" }
       },
       "required": ["date", "time", "customerName", "destination", "items", "status"]
     },
