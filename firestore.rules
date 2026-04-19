@@ -78,21 +78,40 @@ service cloud.firestore {
         && data.updatedAt is timestamp;
     }
 
+    function isValidMessage(data) {
+      return data.keys().hasAll(['text', 'senderId', 'senderName', 'timestamp', 'visibility', 'type'])
+        && data.text is string && data.text.size() <= 4000
+        && data.senderId == request.auth.uid
+        && data.visibility in ['everyone', 'managers']
+        && data.type in ['text', 'image', 'file', 'system']
+        && data.timestamp is timestamp;
+    }
+
+    function isValidTransfer(data) {
+      return data.keys().hasAll(['sourceBranch', 'destinationBranch', 'items', 'status', 'requestedBy', 'requestedByName', 'createdAt', 'updatedAt'])
+        && data.sourceBranch in ['החרש', 'התלמיד']
+        && data.destinationBranch in ['החרש', 'התלמיד']
+        && data.items is string && data.items.size() <= 2000
+        && data.status in ['pending', 'approved', 'on_way', 'delivered', 'cancelled']
+        && data.requestedBy == request.auth.uid
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
     // --- Collection Rules ---
 
     match /orders/{orderId} {
-      allow get: if isEmailVerified();
-      allow list: if isEmailVerified();
+      allow read: if isEmailVerified();
       allow create: if isEmailVerified() && isValidOrder(incoming()) 
                      && incoming().createdAt == request.time 
                      && incoming().updatedAt == request.time;
       allow update: if isEmailVerified() && isValidOrder(incoming())
                      && incoming().updatedAt == request.time
-                     && incoming().createdAt == existing().createdAt
-                     && incoming().createdBy == existing().createdBy
+                     && (incoming().createdAt == existing().createdAt || !('createdAt' in existing()))
+                     && (incoming().createdBy == existing().createdBy || !('createdBy' in existing()))
                      && (
                        isAdmin() || 
-                       incoming().diff(existing()).affectedKeys().hasOnly(['status', 'eta', 'orderFormId', 'deliveryNoteId', 'updatedAt', 'items', 'destination', 'time', 'date', 'driverId', 'warehouse', 'orderNumber'])
+                       incoming().diff(existing()).affectedKeys().hasOnly(['status', 'eta', 'orderFormId', 'deliveryNoteId', 'updatedAt', 'items', 'destination', 'time', 'date', 'driverId', 'warehouse', 'orderNumber', 'source'])
                      );
       allow delete: if isAdmin();
     }
@@ -130,6 +149,29 @@ service cloud.firestore {
                      && incoming().createdAt == existing().createdAt
                      && incoming().userId == existing().userId;
       allow delete: if isEmailVerified() && existing().userId == request.auth.uid;
+    }
+
+    match /messages/{messageId} {
+      allow read: if isEmailVerified() && (
+        resource.data.visibility == 'everyone' || 
+        isAdmin() || 
+        request.auth.token.email == 'itzik@saban.co.il'
+      );
+      allow create: if isEmailVerified() && isValidMessage(incoming())
+                     && incoming().timestamp == request.time;
+      allow delete: if isAdmin() || (isEmailVerified() && resource.data.senderId == request.auth.uid);
+    }
+
+    match /transfers/{transferId} {
+      allow read: if isEmailVerified();
+      allow create: if isEmailVerified() && isValidTransfer(incoming())
+                     && incoming().createdAt == request.time
+                     && incoming().updatedAt == request.time;
+      allow update: if isEmailVerified() && (
+        isAdmin() || 
+        incoming().diff(existing()).affectedKeys().hasOnly(['status', 'eta', 'updatedAt', 'assignedDriverId'])
+      );
+      allow delete: if isAdmin();
     }
   }
 }

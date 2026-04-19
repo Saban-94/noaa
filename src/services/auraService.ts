@@ -13,7 +13,7 @@ import {
   limit
 } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
-import { Order, Driver, Customer, Reminder } from '../types';
+import { Order, Driver, Customer, Reminder, ChatMessage, InterBranchTransfer } from '../types';
 
 import { listDriveFiles, getFileBase64, createCustomerFolderHierarchy } from './driveService';
 
@@ -155,6 +155,96 @@ export const updateReminder = async (reminderId: string, updates: Partial<Remind
 
 export const deleteReminder = async (reminderId: string) => {
   await deleteDoc(doc(db, 'reminders', reminderId));
+};
+
+export const createTransfer = async (transferData: Partial<InterBranchTransfer>) => {
+  if (!auth.currentUser) throw new Error('Not authenticated');
+  const fullTransfer = {
+    ...transferData,
+    status: transferData.status || 'pending',
+    requestedBy: auth.currentUser.uid,
+    requestedByName: auth.currentUser.displayName || 'מישהו',
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  } as InterBranchTransfer;
+  
+  const docRef = await addDoc(collection(db, 'transfers'), fullTransfer);
+  return { id: docRef.id, ...fullTransfer };
+};
+
+export const updateTransfer = async (transferId: string, updates: Partial<InterBranchTransfer>) => {
+  const docRef = doc(db, 'transfers', transferId);
+  await updateDoc(docRef, {
+    ...updates,
+    updatedAt: serverTimestamp(),
+  });
+};
+
+export const processChatMessage = async (message: string, sender: string) => {
+  const prompt = `
+    נתח את הודעת הצ'אט הבאה בקבוצת העבודה של SabanOS.
+    הודעה מאת ${sender}: "${message}"
+    
+    1. אם ההודעה היא בקשת העברה בין סניפים (למשל "צריך העברה של מלט מהחרש"), חלץ:
+       - items: הפריטים להעברה
+       - source: סניף מקור (החרש/התלמיד)
+       - target: סניף יעד
+       במידה וחסר מידע, השלם לפי ההקשר (אם המקור החרש, היעד כנראה התלמיד).
+    
+    2. אם ההודעה היא בקשת הזמנה חדשה שצריך להוסיף לסידור, חלץ פרטים.
+    
+    3. אם ההודעה היא שאלה כללית ל"נועה", ענה עליה.
+    
+    תחזיר אובייקט JSON עם:
+    - intent: "transfer" / "order" / "chat" / "none"
+    - data: הפרטים שחילצת
+    - suggestion: הצעה לפעולה (טקסט קצר)
+  `;
+
+  const response = await ai.models.generateContent({
+    model: "gemini-3-flash-preview",
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    config: {
+      responseMimeType: "application/json"
+    }
+  });
+
+  return JSON.parse(response.text || "{}");
+};
+
+export const analyzePdfContent = async (fileId: string) => {
+  const base64 = await getFileBase64(fileId);
+  
+  if (!base64 || base64.length < 100) {
+    throw new Error(`הקובץ ${fileId} נראה ריק או לא תקין.`);
+  }
+
+  const analysisPrompt = `נתח את קובץ ה-PDF הזה. חלץ:
+- document_type (order / delivery_note)
+- order_number
+- customer_name
+- items (מערך של {quantity, itemName, sku})
+- contact_person (איש קשר)
+- phone_number (טלפון)
+- destination (כתובת יעד)
+
+החזר JSON בלבד.`;
+  
+  const analysisResponse = await ai.models.generateContent({
+    model: "gemini-3-flash-preview",
+    contents: [{
+      role: 'user',
+      parts: [
+        { text: analysisPrompt },
+        { inlineData: { data: base64, mimeType: 'application/pdf' } }
+      ]
+    }],
+    config: {
+      responseMimeType: "application/json"
+    }
+  });
+
+  return JSON.parse(analysisResponse.text || "{}");
 };
 
 export const noaSystemInstruction = `
@@ -469,6 +559,31 @@ export const tools = [
           },
           required: ["reminderId"]
         }
+      },
+      {
+        name: "create_inter_branch_transfer",
+        description: "צור בקשת העברה של חומרים בין סניפי החרש והתלמיד",
+        parameters: {
+          type: Type.OBJECT,
+          properties: {
+            sourceBranch: { type: Type.STRING, enum: ["החרש", "התלמיד"], description: "סניף המקור" },
+            destinationBranch: { type: Type.STRING, enum: ["החרש", "התלמיד"], description: "סניף היעד" },
+            items: { type: Type.STRING, description: "תיאור הפריטים והכמויות" }
+          },
+          required: ["sourceBranch", "destinationBranch", "items"]
+        }
+      },
+      {
+        name: "get_transfer_eta",
+        description: "קבל ETA להעברה בין סניפים",
+        parameters: {
+          type: Type.OBJECT,
+          properties: {
+            sourceBranch: { type: Type.STRING, enum: ["החרש", "התלמיד"] },
+            destinationBranch: { type: Type.STRING, enum: ["החרש", "התלמיד"] }
+          },
+          required: ["sourceBranch", "destinationBranch"]
+        }
       }
     ]
   }
@@ -571,41 +686,9 @@ async function processNoaTurn(contents: any[]): Promise<any> {
           case 'list_drive_files':
             result = { files: await listDriveFiles(call.args?.folderId as string) };
             break;
-          case 'analyze_pdf_content': {
-            const fileId = call.args.fileId as string;
-            const base64 = await getFileBase64(fileId);
-            
-            if (!base64 || base64.length < 100) {
-              throw new Error(`הקובץ ${fileId} נראה ריק או לא תקין.`);
-            }
-
-            const analysisPrompt = `נתח את קובץ ה-PDF הזה. חלץ:
-- document_type (order / delivery_note)
-- order_number
-- customer_name
-- items (מערך של {quantity, itemName, sku})
-- contact_person (איש קשר)
-- phone_number (טלפון)
-- destination (כתובת יעד)
-
-החזר JSON בלבד.`;
-            
-            const analysisResponse = await ai.models.generateContent({
-              model: "gemini-3-flash-preview",
-              contents: [{
-                role: 'user',
-                parts: [
-                  { text: analysisPrompt },
-                  { inlineData: { data: base64, mimeType: 'application/pdf' } }
-                ]
-              }],
-              config: {
-                responseMimeType: "application/json"
-              }
-            });
-            result = { analysis: analysisResponse.text };
+          case 'analyze_pdf_content':
+            result = await analyzePdfContent(call.args.fileId as string);
             break;
-          }
           case 'create_reminder':
             result = await createReminder(call.args as any);
             break;
@@ -616,6 +699,18 @@ async function processNoaTurn(contents: any[]): Promise<any> {
             const { reminderId, ...remUpdates } = call.args as any;
             await updateReminder(reminderId, remUpdates);
             result = { success: true };
+            break;
+          }
+          case 'create_inter_branch_transfer':
+            result = await createTransfer(call.args as any);
+            break;
+          case 'get_transfer_eta': {
+            const source = call.args.sourceBranch === 'החרש' ? 'החרש 10, הוד השרון' : 'התלמיד 6, הוד השרון';
+            const dest = call.args.destinationBranch === 'החרש' ? 'החרש 10, הוד השרון' : 'התלמיד 6, הוד השרון';
+            const hist = await fetchOrders();
+            const dummyOrder: any = { destination: dest, warehouse: call.args.sourceBranch };
+            const eta = await predictOrderEta(dummyOrder, hist);
+            result = { eta };
             break;
           }
           default:

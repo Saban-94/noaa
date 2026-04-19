@@ -74,6 +74,33 @@
         "updatedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["title", "dueDate", "dueTime", "isCompleted", "userId"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "Message in SabanMessenger",
+      "type": "object",
+      "properties": {
+        "text": { "type": "string" },
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "visibility": { "type": "string", "enum": ["everyone", "managers"] },
+        "type": { "type": "string", "enum": ["text", "image", "file", "system"] }
+      },
+      "required": ["text", "senderId", "senderName", "timestamp", "visibility", "type"]
+    },
+    "InterBranchTransfer": {
+      "title": "InterBranchTransfer",
+      "description": "Movement of materials between branches",
+      "type": "object",
+      "properties": {
+        "sourceBranch": { "type": "string", "enum": ["החרש", "התלמיד"] },
+        "destinationBranch": { "type": "string", "enum": ["החרש", "התלמיד"] },
+        "items": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "on_way", "delivered", "cancelled"] },
+        "requestedBy": { "type": "string" }
+      },
+      "required": ["sourceBranch", "destinationBranch", "items", "status", "requestedBy"]
     }
   },
   "firestore": {
@@ -92,6 +119,14 @@
     "reminders": {
       "schema": "Reminder",
       "description": "Collection of user-specific reminders"
+    },
+    "messages": {
+      "schema": "ChatMessage",
+      "description": "Collection of chat messages"
+    },
+    "transfers": {
+      "schema": "InterBranchTransfer",
+      "description": "Collection of inter-branch transfers"
     }
   }
 }

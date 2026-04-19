@@ -17,6 +17,36 @@ export interface Order {
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
   createdBy?: string;
+  source?: 'manual' | 'import' | 'chat';
+}
+
+export interface ChatMessage {
+  id?: string;
+  text: string;
+  senderId: string;
+  senderName: string;
+  senderPhoto?: string;
+  timestamp: Timestamp;
+  visibility: 'everyone' | 'managers';
+  type: 'text' | 'image' | 'file' | 'system';
+  fileUrl?: string;
+  fileName?: string;
+  fileType?: string;
+  metadata?: any;
+}
+
+export interface InterBranchTransfer {
+  id?: string;
+  sourceBranch: 'החרש' | 'התלמיד';
+  destinationBranch: 'החרש' | 'התלמיד';
+  items: string;
+  status: 'pending' | 'approved' | 'on_way' | 'delivered' | 'cancelled';
+  requestedBy: string;
+  requestedByName: string;
+  assignedDriverId?: string;
+  eta?: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
 }
 
 export interface Driver {

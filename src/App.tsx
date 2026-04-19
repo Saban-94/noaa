@@ -75,6 +75,7 @@ import { SearchSuggestions } from './components/SearchSuggestions';
 import { NoaChat } from './components/NoaChat';
 import { initOneSignal, sendOrderNotification } from './services/notificationService';
 import { DeliveryImport } from './components/DeliveryImport';
+import { SabanMessenger } from './components/SabanMessenger';
 import { 
   createOrder, 
   updateOrder, 
@@ -246,6 +247,7 @@ const Drawer = ({
           <div className="flex-1 space-y-2">
             {[
               { id: 'chat', label: 'דברו עם נועה (AI)', icon: MessageSquare },
+              { id: 'messenger', label: 'קבוצת עבודה (SabanMessenger)', icon: Users },
               { id: 'list', label: 'לוח הזמנות', icon: LayoutList },
               { id: 'kanban', label: 'לוח קנבן', icon: Trello },
               { id: 'calendar', label: 'סידור עבודה שבועי', icon: CalendarDays },
@@ -461,7 +463,7 @@ export default function App() {
 
   // --- User Memory Persistence ---
   const [settings, setSettings] = useUserMemory(user?.uid, 'ui_settings', {
-    viewMode: 'kanban' as 'list' | 'calendar' | 'reports' | 'chat' | 'drivers' | 'kanban' | 'import',
+    viewMode: 'kanban' as 'list' | 'calendar' | 'reports' | 'chat' | 'drivers' | 'kanban' | 'import' | 'messenger',
     statusFilter: 'all',
     driverFilter: 'all',
     warehouseFilter: 'all',
@@ -982,6 +984,26 @@ export default function App() {
       </div>
     </div>
   );
+
+  if (viewMode === 'messenger') {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col font-sans" dir="rtl">
+        <Header 
+          user={user} 
+          onOpenDrawer={() => setIsDrawerOpen(true)}
+          notificationsEnabled={notificationsEnabled}
+          onToggleNotifications={toggleNotifications}
+          onInstallApp={installPrompt ? handleInstallClick : null}
+          onFileUpload={handleDriveFileUpload}
+          isUploading={isUploadingDoc}
+          onOpenReminders={() => setIsRemindersOpen(true)}
+        />
+        <main className="flex-1 overflow-hidden">
+          <SabanMessenger />
+        </main>
+      </div>
+    );
+  }
 
   if (viewMode === 'reports') {
     return <MorningReportSystem onBack={() => setViewMode('list')} drivers={drivers} />;
