@@ -1,0 +1,8 @@
+{
+  "name": "נועה - ניהול לוגיסטיקה ח. סבן",
+  "description": "נועה, המוח הלוגיסטי של ח. סבן חומרי בניין. מערכת חכמה לניהול הזמנות, נהגים, לקוחות ותזכורות עם אינטגרציה מלאה ל-Google Drive ו-Gemini AI.",
+  "requestFramePermissions": [
+    "geolocation"
+  ],
+  "majorCapabilities": []
+}

@@ -1,0 +1,135 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isEmailVerified() && (
+        request.auth.token.email == 'hsaban2025@gmail.com'
+      );
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- Validation Blueprints ---
+
+    function isValidOrder(data) {
+      return data.keys().hasAll(['date', 'time', 'customerName', 'destination', 'items', 'status', 'createdAt', 'updatedAt', 'createdBy'])
+        && data.date is string && data.date.size() == 10
+        && data.time is string && data.time.size() <= 5
+        && data.customerName is string && data.customerName.size() <= 200
+        && data.destination is string && data.destination.size() <= 500
+        && data.items is string && data.items.size() <= 2000
+        && data.status in ['pending', 'preparing', 'ready', 'delivered', 'cancelled']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp
+        && data.createdBy == request.auth.uid;
+    }
+
+    function isValidDriver(data) {
+      return data.keys().hasAll(['name', 'phone', 'vehicleType', 'status', 'createdAt', 'updatedAt'])
+        && data.name is string && data.name.size() <= 100
+        && data.phone is string && data.phone.size() <= 20
+        && data.vehicleType in ['truck', 'crane']
+        && data.status in ['active', 'off_duty']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidCustomer(data) {
+      return data.keys().hasAll(['customerNumber', 'name', 'phoneNumber', 'createdAt', 'updatedAt'])
+        && data.customerNumber is string && data.customerNumber.size() <= 50
+        && data.name is string && data.name.size() <= 200
+        && data.phoneNumber is string && data.phoneNumber.size() <= 20
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidReminder(data) {
+      return data.keys().hasAll(['title', 'dueDate', 'dueTime', 'isCompleted', 'userId', 'createdAt', 'updatedAt'])
+        && data.title is string && data.title.size() <= 200
+        && data.dueDate is string && data.dueDate.size() == 10
+        && data.dueTime is string && data.dueTime.size() <= 5
+        && data.isCompleted is bool
+        && data.userId == request.auth.uid
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    // --- Collection Rules ---
+
+    match /orders/{orderId} {
+      allow get: if isEmailVerified();
+      allow list: if isEmailVerified();
+      allow create: if isEmailVerified() && isValidOrder(incoming()) 
+                     && incoming().createdAt == request.time 
+                     && incoming().updatedAt == request.time;
+      allow update: if isEmailVerified() && isValidOrder(incoming())
+                     && incoming().updatedAt == request.time
+                     && incoming().createdAt == existing().createdAt
+                     && incoming().createdBy == existing().createdBy
+                     && (
+                       isAdmin() || 
+                       incoming().diff(existing()).affectedKeys().hasOnly(['status', 'eta', 'orderFormId', 'deliveryNoteId', 'updatedAt', 'items', 'destination', 'time', 'date', 'driverId', 'warehouse', 'orderNumber'])
+                     );
+      allow delete: if isAdmin();
+    }
+
+    match /drivers/{driverId} {
+      allow read: if isEmailVerified();
+      allow create: if isEmailVerified() && isValidDriver(incoming())
+                     && incoming().createdAt == request.time
+                     && incoming().updatedAt == request.time;
+      allow update: if isEmailVerified() && isValidDriver(incoming())
+                     && incoming().updatedAt == request.time
+                     && incoming().createdAt == existing().createdAt;
+      allow delete: if isAdmin();
+    }
+
+    match /customers/{customerId} {
+      allow read: if isEmailVerified();
+      allow create: if isEmailVerified() && isValidCustomer(incoming())
+                     && incoming().createdAt == request.time
+                     && incoming().updatedAt == request.time;
+      allow update: if isEmailVerified() && isValidCustomer(incoming())
+                     && incoming().updatedAt == request.time
+                     && incoming().createdAt == existing().createdAt;
+      allow delete: if isAdmin();
+    }
+
+    match /reminders/{reminderId} {
+      allow read: if isEmailVerified() && resource.data.userId == request.auth.uid;
+      allow create: if isEmailVerified() && isValidReminder(incoming())
+                     && incoming().createdAt == request.time
+                     && incoming().updatedAt == request.time;
+      allow update: if isEmailVerified() && existing().userId == request.auth.uid 
+                     && isValidReminder(incoming())
+                     && incoming().updatedAt == request.time
+                     && incoming().createdAt == existing().createdAt
+                     && incoming().userId == existing().userId;
+      allow delete: if isEmailVerified() && existing().userId == request.auth.uid;
+    }
+  }
+}

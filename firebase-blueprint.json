@@ -1,0 +1,97 @@
+{
+  "entities": {
+    "Order": {
+      "title": "Order",
+      "description": "Logistics delivery order for building materials",
+      "type": "object",
+      "properties": {
+        "orderNumber": { "type": "string" },
+        "date": { "type": "string", "format": "date", "description": "YYYY-MM-DD" },
+        "time": { "type": "string", "description": "HH:mm" },
+        "driverId": { "type": "string" },
+        "customerName": { "type": "string" },
+        "destination": { "type": "string" },
+        "items": { "type": "string" },
+        "warehouse": { "type": "string", "enum": ["החרש", "התלמיד"] },
+        "status": { "type": "string", "enum": ["pending", "preparing", "ready", "delivered", "cancelled"] },
+        "orderFormId": { "type": "string" },
+        "deliveryNoteId": { "type": "string" },
+        "eta": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "createdBy": { "type": "string" }
+      },
+      "required": ["date", "time", "customerName", "destination", "items", "status"]
+    },
+    "Driver": {
+      "title": "Driver",
+      "description": "Delivery driver profile",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "phone": { "type": "string" },
+        "avatar": { "type": "string" },
+        "vehicleType": { "type": "string", "enum": ["truck", "crane"] },
+        "plateNumber": { "type": "string" },
+        "vehicleModel": { "type": "string" },
+        "status": { "type": "string", "enum": ["active", "off_duty"] },
+        "totalDeliveries": { "type": "integer" },
+        "onTimeRate": { "type": "number" },
+        "rating": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "phone", "vehicleType", "status"]
+    },
+    "Customer": {
+      "title": "Customer",
+      "description": "Customer contact and folder info",
+      "type": "object",
+      "properties": {
+        "customerNumber": { "type": "string" },
+        "name": { "type": "string" },
+        "contactPerson": { "type": "string" },
+        "phoneNumber": { "type": "string" },
+        "driveFolderId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["customerNumber", "name", "phoneNumber"]
+    },
+    "Reminder": {
+      "title": "Reminder",
+      "description": "User reminders and tasks",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "dueDate": { "type": "string", "format": "date" },
+        "dueTime": { "type": "string" },
+        "isCompleted": { "type": "boolean" },
+        "orderId": { "type": "string" },
+        "userId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "dueDate", "dueTime", "isCompleted", "userId"]
+    }
+  },
+  "firestore": {
+    "orders": {
+      "schema": "Order",
+      "description": "Collection of logistics orders"
+    },
+    "drivers": {
+      "schema": "Driver",
+      "description": "Collection of driver profiles"
+    },
+    "customers": {
+      "schema": "Customer",
+      "description": "Collection of customer records"
+    },
+    "reminders": {
+      "schema": "Reminder",
+      "description": "Collection of user-specific reminders"
+    }
+  }
+}
