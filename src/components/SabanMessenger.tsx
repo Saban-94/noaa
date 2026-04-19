@@ -18,7 +18,8 @@ import {
   Trash2,
   Lock,
   Users,
-  ListTodo
+  ListTodo,
+  Video
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, deleteDoc, doc, updateDoc, Timestamp } from 'firebase/firestore';
@@ -159,6 +160,10 @@ export const SabanMessenger = () => {
     try {
       const uploadResult = await uploadFileToDrive(file);
       if (uploadResult?.fileId) {
+        let messageType: 'file' | 'image' | 'video' = 'file';
+        if (file.type.startsWith('image/')) messageType = 'image';
+        else if (file.type.startsWith('video/')) messageType = 'video';
+
         await addDoc(collection(db, 'messages'), {
           text: `העליתי קובץ: ${file.name}`,
           senderId: auth.currentUser.uid,
@@ -166,7 +171,7 @@ export const SabanMessenger = () => {
           senderPhoto: auth.currentUser.photoURL,
           timestamp: serverTimestamp(),
           visibility: visibility,
-          type: file.type.includes('image') ? 'image' : 'file',
+          type: messageType,
           fileUrl: uploadResult.fileId,
           fileName: file.name,
           fileType: file.type
@@ -176,6 +181,7 @@ export const SabanMessenger = () => {
       console.error("Upload error:", err);
     } finally {
       setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
@@ -369,10 +375,48 @@ export const SabanMessenger = () => {
                       </div>
                     )}
                     {msg.type === 'image' && (
-                      <div className="mt-2 rounded-xl overflow-hidden border border-white/20 shadow-inner">
-                         <div className="bg-gray-100 h-20 flex items-center justify-center text-gray-400">
-                           <ImageIcon size={32} />
-                         </div>
+                      <div className="mt-2 rounded-xl overflow-hidden border border-white/20 shadow-inner group/msg">
+                        {/* We use the public thumbnail if available, or just a placeholder for now as full Drive viewing requires auth/proxy */}
+                        <div className="bg-gray-100 min-h-[120px] max-h-[240px] flex items-center justify-center text-gray-400 relative overflow-hidden">
+                           <ImageIcon size={48} className="absolute opacity-20" />
+                           <img 
+                             src={`https://lh3.googleusercontent.com/u/0/d/${msg.fileUrl}=w800-h800`} 
+                             alt={msg.fileName}
+                             className="w-full h-full object-cover relative z-10"
+                             onError={(e) => {
+                               e.currentTarget.style.display = 'none';
+                             }}
+                             referrerPolicy="no-referrer"
+                           />
+                           <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover/msg:opacity-100 transition-opacity z-20">
+                             <a 
+                               href={`https://drive.google.com/file/d/${msg.fileUrl}/view`} 
+                               target="_blank" 
+                               rel="noreferrer"
+                               className="px-4 py-2 bg-white text-gray-900 rounded-full text-xs font-bold"
+                             >
+                               צפה בתמונה
+                             </a>
+                           </div>
+                        </div>
+                      </div>
+                    )}
+                    {msg.type === 'video' && (
+                      <div className="mt-2 rounded-xl overflow-hidden border border-white/20 shadow-inner group/msg">
+                        <div className="bg-gray-900 aspect-video flex flex-col items-center justify-center text-white/50 relative">
+                           <Video size={48} className="mb-2" />
+                           <span className="text-[10px] font-bold">סרטון וידאו</span>
+                           <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover/msg:opacity-100 transition-opacity">
+                             <a 
+                               href={`https://drive.google.com/file/d/${msg.fileUrl}/view`} 
+                               target="_blank" 
+                               rel="noreferrer"
+                               className="px-4 py-2 bg-white text-gray-900 rounded-full text-xs font-bold"
+                             >
+                               נגן סרטון
+                             </a>
+                           </div>
+                        </div>
                       </div>
                     )}
                     <div className={`flex items-center gap-1 mt-1 ${isMe ? 'justify-end text-sky-100' : 'justify-start text-gray-400'} text-[9px]`}>
@@ -466,7 +510,7 @@ export const SabanMessenger = () => {
                 ref={fileInputRef} 
                 onChange={handleFileUpload} 
                 className="hidden" 
-                accept="application/pdf,image/*"
+                accept="application/pdf,image/*,video/*"
               />
               <button 
                 type="button" 

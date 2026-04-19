@@ -29,7 +29,7 @@ export interface ChatMessage {
   senderPhoto?: string;
   timestamp: Timestamp;
   visibility: 'everyone' | 'managers';
-  type: 'text' | 'image' | 'file' | 'system';
+  type: 'text' | 'image' | 'file' | 'video' | 'system';
   fileUrl?: string;
   fileName?: string;
   fileType?: string;

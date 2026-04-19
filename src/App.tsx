@@ -1727,6 +1727,13 @@ export default function App() {
           <span className="text-[10px] font-bold">נועה</span>
         </button>
         <button 
+          onClick={() => setViewMode('messenger')}
+          className={`flex flex-col items-center gap-1 min-h-[44px] min-w-[44px] justify-center ${viewMode === 'messenger' ? 'text-sky-600' : 'text-gray-300'}`}
+        >
+          <Users size={20} />
+          <span className="text-[10px] font-bold">קבוצת עבודה</span>
+        </button>
+        <button 
           onClick={() => setViewMode('drivers')}
           className={`flex flex-col items-center gap-1 min-h-[44px] min-w-[44px] justify-center ${viewMode === 'drivers' ? 'text-sky-600' : 'text-gray-300'}`}
         >
