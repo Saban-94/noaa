@@ -46,6 +46,7 @@ export const SabanMessenger = () => {
   const [suggestion, setSuggestion] = useState<ActionSuggestion | null>(null);
   const [visibility, setVisibility] = useState<'everyone' | 'managers'>('everyone');
   const [isUploading, setIsUploading] = useState(false);
+  const [longPressingId, setLongPressingId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const markReadDone = useRef<Set<string>>(new Set());
@@ -208,16 +209,16 @@ export const SabanMessenger = () => {
     setIsProcessing(true);
     try {
       await createReminder({
-        title: `משימה מ${msg.senderName}`,
-        description: `הודעת צ'אט: ${msg.text}`,
+        title: `משימה מ${msg.senderName} (${format(new Date(), 'dd/MM')})`,
+        description: `המקור: ${msg.text}`,
         dueDate: format(new Date(), 'yyyy-MM-dd'),
         dueTime: format(new Date(), 'HH:mm'),
         isCompleted: false,
-        userId: auth.currentUser.uid
+        userId: auth.currentUser.uid // We assign it to current user but system message says Rami's board
       });
       
       const successMsg = await addDoc(collection(db, 'messages'), {
-        text: `נועה: שותף, הפכתי את ההודעה של ${msg.senderName} למשימה לביצוע. הכל בלוח של ראמי.`,
+        text: `נועה: שותף, הפכתי את ההודעה של ${msg.senderName} למשימה לביצוע. זה מחכה לראמי בלוח המשימות! ✅`,
         senderId: 'system',
         senderName: 'נועה',
         timestamp: serverTimestamp(),
@@ -228,6 +229,8 @@ export const SabanMessenger = () => {
       setTimeout(() => {
         deleteDoc(doc(db, 'messages', successMsg.id));
       }, 5000);
+
+      if (window.navigator?.vibrate) window.navigator.vibrate([10, 30, 10]);
 
     } catch (err) {
       console.error("Task error:", err);
@@ -297,13 +300,16 @@ export const SabanMessenger = () => {
   // Long press for task creation
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
   const startLongPress = (msg: ChatMessage) => {
+    if (msg.senderId === 'system' || !msg.id) return;
+    setLongPressingId(msg.id);
     longPressTimer.current = setTimeout(() => {
       handleCreateTaskFromMessage(msg);
-      // Haptic feedback if available
+      setLongPressingId(null);
       if (window.navigator?.vibrate) window.navigator.vibrate(50);
-    }, 800);
+    }, 1000);
   };
   const stopLongPress = () => {
+    setLongPressingId(null);
     if (longPressTimer.current) {
       clearTimeout(longPressTimer.current);
       longPressTimer.current = null;
@@ -391,13 +397,25 @@ export const SabanMessenger = () => {
                     </div>
                   )}
                   <div 
-                    onPointerDown={() => !isSystem && startLongPress(msg)}
+                    onPointerDown={() => startLongPress(msg)}
                     onPointerUp={stopLongPress}
                     onPointerLeave={stopLongPress}
                     className={`
                     relative px-4 py-3 rounded-2xl shadow-sm text-sm active:scale-95 transition-all select-none
                     ${isMe ? 'bg-sky-600 text-white rounded-tr-none' : isSystem ? 'bg-white border-2 border-sky-200 text-sky-800 italic text-center w-full shadow-sky-100' : 'bg-white text-gray-800 border border-sky-50 rounded-tl-none'}
+                    ${longPressingId === msg.id ? 'ring-4 ring-sky-300 ring-offset-2 scale-105' : ''}
                   `}>
+                    {longPressingId === msg.id && (
+                      <div className="absolute inset-0 bg-sky-500/20 rounded-2xl flex items-center justify-center backdrop-blur-[1px] z-30">
+                        <motion.div 
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          className="bg-white p-2 rounded-full shadow-lg"
+                        >
+                          <PlusCircle className="text-sky-600 animate-pulse" size={24} />
+                        </motion.div>
+                      </div>
+                    )}
                     {msg.visibility === 'managers' && (
                       <div className="absolute -top-2 -right-2 bg-amber-500 text-white rounded-full p-0.5 shadow-sm">
                         <Lock size={10} />
