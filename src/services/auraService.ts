@@ -180,12 +180,19 @@ export const updateTransfer = async (transferId: string, updates: Partial<InterB
   });
 };
 
-export const processChatMessage = async (message: string, sender: string) => {
+export const processChatMessage = async (message: string, sender: string, context?: { role: string, branch: string }) => {
   const prompt = `
     נתח את הודעת הצ'אט הבאה בקבוצת העבודה של SabanOS.
     הודעה מאת ${sender}: "${message}"
     
-    1. אם ההודעה היא בקשת העברה בין סניפים (החרש/התלמיד), חלץ:
+    הקשר המשתמש (Context):
+    - תפקיד: ${context?.role || 'לא ידוע'}
+    - סניף מועדף: ${context?.branch || 'שניהם'}
+
+    הוראות לנועה:
+    1. את נועה, העוזרת החכמה של ח. סבן. את מדברת בסגנון חם, חברי, ומקצועי ("נשמה", "שותף", "אחי").
+    2. את מכירה את הדובר: אם זה מנהל סניף החרש, תני לו עדיפות במידע על החרש.
+    3. אם ההודעה היא בקשת העברה בין סניפים (החרש/התלמיד), חלץ:
        - items: הפריטים להעברה (למשל: 50 שקי מלט)
        - source: סניף מקור (החרש/התלמיד)
        - target: סניף יעד (החרש/התלמיד)

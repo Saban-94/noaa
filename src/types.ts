@@ -1,5 +1,18 @@
 import { Timestamp } from 'firebase/firestore';
 
+export interface UserProfile {
+  uid: string;
+  displayName: string;
+  email: string;
+  role: 'admin' | 'manager_harash' | 'manager_talmid' | 'driver' | 'office';
+  photoURL?: string;
+  preferences?: {
+    notifications: boolean;
+    theme: 'light' | 'dark';
+    branch: 'החרש' | 'התלמיד' | 'both';
+  };
+}
+
 export interface Order {
   id?: string;
   orderNumber?: string;

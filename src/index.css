@@ -18,10 +18,20 @@
       radial-gradient(at 100% 100%, rgba(14, 165, 233, 0.05) 0px, transparent 50%);
     background-attachment: fixed;
     -webkit-tap-highlight-color: transparent;
-    overflow-x: hidden;
     width: 100%;
-    position: relative;
-    min-height: 100vh;
+    position: fixed;
+    height: 100vh;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
+  button, a, .clickable {
+    touch-action: manipulation;
+    min-height: 44px;
+    min-width: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   /* Support for smooth scrolling on iOS */

@@ -11,6 +11,7 @@ import {
   Paperclip,
   Truck,
   ArrowLeftRight,
+  Package,
   PlusCircle,
   Clock,
   Sparkles,
@@ -26,7 +27,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, deleteDoc, doc, updateDoc, Timestamp } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
-import { ChatMessage, InterBranchTransfer, Order } from '../types';
+import { ChatMessage, InterBranchTransfer, Order, UserProfile } from '../types';
 import { format } from 'date-fns';
 import { he } from 'date-fns/locale';
 import { processChatMessage, createTransfer, createOrder, predictOrderEta, createReminder } from '../services/auraService';
@@ -34,15 +35,21 @@ import { uploadFileToDrive } from '../services/driveService';
 import { analyzePdfContent } from '../services/auraService'; // Need to export this
 
 interface ActionSuggestion {
-  intent: 'transfer' | 'order' | 'chat' | 'none';
+  intent: 'transfer' | 'order' | 'chat' | 'none' | 'debug';
   data: any;
   suggestion: string;
+  answer?: string;
 }
 
-export const SabanMessenger = () => {
+interface SabanMessengerProps {
+  userProfile?: UserProfile;
+}
+
+export const SabanMessenger: React.FC<SabanMessengerProps> = ({ userProfile }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
   const [suggestion, setSuggestion] = useState<ActionSuggestion | null>(null);
   const [visibility, setVisibility] = useState<'everyone' | 'managers'>('everyone');
   const [isUploading, setIsUploading] = useState(false);
@@ -148,7 +155,13 @@ export const SabanMessenger = () => {
       });
 
       // 2. Process with AI for Suggestions (only if it's a manager message or everyone)
-      const aiResponse = await processChatMessage(messageText, auth.currentUser.displayName || 'אחי');
+      setIsTyping(true);
+      const aiResponse = await processChatMessage(
+        messageText, 
+        auth.currentUser.displayName || 'אחי',
+        userProfile ? { role: userProfile.role, branch: userProfile.preferences?.branch || 'both' } : undefined
+      );
+      setIsTyping(false);
       
       if (aiResponse.answer) {
         await addDoc(collection(db, 'messages'), {
@@ -317,9 +330,9 @@ export const SabanMessenger = () => {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-140px)] md:h-[calc(100vh-80px)] bg-gray-50/50 backdrop-blur-sm rounded-3xl overflow-hidden border border-sky-100 shadow-xl m-2 md:m-4">
+    <div className="flex flex-col h-screen md:h-full bg-gray-50/50 backdrop-blur-sm overflow-hidden standalone:pb-[env(safe-area-inset-bottom)]">
       {/* Header */}
-      <div className="p-4 bg-white border-b border-sky-50 flex items-center justify-between shadow-sm z-10">
+      <div className="p-4 bg-white/80 backdrop-blur-md border-b border-sky-50 flex items-center justify-between shadow-sm z-10 shrink-0">
         <div className="flex items-center gap-3">
           <div className="relative">
             <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-sky-600 to-indigo-600 flex items-center justify-center text-white shadow-lg">
@@ -328,17 +341,17 @@ export const SabanMessenger = () => {
             <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></div>
           </div>
           <div>
-            <h2 className="font-bold text-gray-900 leading-none mb-1">קבוצת עבודה - ח. סבן</h2>
-            <p className="text-[10px] text-gray-400 font-medium tracking-wide">זמינה 24/7 • נועה הצטרפה לצ'אט</p>
+            <h2 className="font-black text-gray-900 leading-none mb-1 tracking-tight">קבוצת עבודה - ח. סבן</h2>
+            <p className="text-[10px] text-gray-400 font-black tracking-wide">זמינה 24/7 • נועה הצטרפה לצ'אט</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
           <button 
             onClick={() => setVisibility(v => v === 'everyone' ? 'managers' : 'everyone')}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-bold transition-all border ${
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-black transition-all border ${
               visibility === 'managers' 
-                ? 'bg-amber-50 text-amber-600 border-amber-100' 
-                : 'bg-sky-50 text-sky-600 border-sky-100'
+                ? 'bg-amber-500 text-white border-amber-600 shadow-md' 
+                : 'bg-white text-sky-600 border-sky-100'
             }`}
           >
             {visibility === 'managers' ? <Lock size={12} /> : <Shield size={12} />}
@@ -350,8 +363,8 @@ export const SabanMessenger = () => {
       {/* Messages Area */}
       <div 
         ref={scrollRef}
-        className="flex-1 overflow-y-auto p-4 space-y-4 scroll-smooth"
-        style={{ backgroundImage: 'radial-gradient(#e0f2fe 1px, transparent 1px)', backgroundSize: '20px 20px' }}
+        className="flex-1 overflow-y-auto p-4 space-y-4 scroll-smooth overscroll-contain"
+        style={{ backgroundImage: 'radial-gradient(#e0f2fe 1.5px, transparent 1.5px)', backgroundSize: '24px 24px' }}
       >
         <AnimatePresence initial={false}>
           {messages.map((msg, idx) => {
@@ -516,19 +529,20 @@ export const SabanMessenger = () => {
           })}
         </AnimatePresence>
 
-        {isProcessing && (
-          <motion.div 
-            initial={{ opacity: 0 }} 
-            animate={{ opacity: 1 }} 
-            className="flex items-center gap-2 text-sky-400 px-4"
-          >
-            <div className="flex gap-1">
-              <span className="w-1.5 h-1.5 bg-sky-400 rounded-full animate-bounce" style={{ animationDelay: '0s' }}></span>
-              <span className="w-1.5 h-1.5 bg-sky-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></span>
-              <span className="w-1.5 h-1.5 bg-sky-400 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></span>
+        {isTyping && (
+          <div className="flex justify-start items-end gap-2 px-4 mt-2 mb-4 animate-in fade-in slide-in-from-bottom-2">
+            <div className="w-8 h-8 rounded-full bg-sky-100 flex items-center justify-center border border-sky-200">
+              <Package size={14} className="text-sky-600 animate-bounce" />
             </div>
-            <span className="text-[10px] font-bold">נועה מנתחת אחי...</span>
-          </motion.div>
+            <div className="bg-white px-4 py-3 rounded-2xl rounded-tl-none border border-sky-50 shadow-sm flex items-center gap-3">
+              <div className="flex gap-1 items-center">
+                <div className="w-1.5 h-1.5 bg-sky-400 rounded-full animate-bounce [animation-delay:-0.3s]" />
+                <div className="w-1.5 h-1.5 bg-sky-400 rounded-full animate-bounce [animation-delay:-0.15s]" />
+                <div className="w-1.5 h-1.5 bg-sky-400 rounded-full animate-bounce" />
+              </div>
+              <span className="text-[10px] font-black text-sky-600 italic tracking-tight">נועה חושבת...</span>
+            </div>
+          </div>
         )}
       </div>
 

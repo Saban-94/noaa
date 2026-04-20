@@ -76,6 +76,7 @@ import { NoaChat } from './components/NoaChat';
 import { initOneSignal, sendOrderNotification } from './services/notificationService';
 import { DeliveryImport } from './components/DeliveryImport';
 import { SabanMessenger } from './components/SabanMessenger';
+import { UserProfileView } from './components/UserProfile';
 import { 
   createOrder, 
   updateOrder, 
@@ -88,7 +89,7 @@ import {
   updateReminder,
   deleteReminder
 } from './services/auraService';
-import { Order, Driver, Customer, Reminder } from './types';
+import { Order, Driver, Customer, Reminder, UserProfile } from './types';
 import { useUserMemory } from './hooks/useUserMemory';
 import { uploadFileToDrive } from './services/driveService';
 
@@ -222,25 +223,25 @@ const Drawer = ({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={onClose}
-          className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-[60]"
+          className="fixed inset-0 bg-gray-900/40 backdrop-blur-md z-[60]"
         />
         <motion.div 
           initial={{ x: '100%' }}
           animate={{ x: 0 }}
           exit={{ x: '100%' }}
           transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-          className="fixed inset-y-0 right-0 w-80 bg-white shadow-2xl z-[70] flex flex-col p-6 overflow-y-auto"
+          className="fixed inset-y-0 right-0 w-[85%] sm:w-80 bg-white shadow-2xl z-[70] flex flex-col p-6 overflow-y-auto rounded-l-[40px] border-l border-sky-50"
           dir="rtl"
         >
-          <div className="flex justify-between items-center mb-10">
+          <div className="flex justify-between items-center mb-8">
             <div className="flex items-center gap-3">
-              <div className="bg-sky-600 p-2 rounded-xl text-white">
-                <Truck size={20} />
+              <div className="bg-sky-600 p-2.5 rounded-[18px] text-white shadow-lg shadow-sky-600/20">
+                <Truck size={22} />
               </div>
-              <h2 className="text-xl font-bold italic">ח. סבן</h2>
+              <h2 className="text-2xl font-black italic tracking-tighter text-gray-900">ח. סבן</h2>
             </div>
-            <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-xl transition-colors">
-              <X size={24} className="text-gray-400" />
+            <button onClick={onClose} className="p-3 hover:bg-gray-100 rounded-2xl transition-colors text-gray-400">
+              <X size={26} />
             </button>
           </div>
 
@@ -288,33 +289,47 @@ const Drawer = ({
             </button>
           </div>
 
-          <div className="pt-8 border-t border-gray-100 mt-auto">
+          <div className="pt-6 border-t border-gray-100 mt-auto space-y-4">
+            <button 
+              onClick={() => {
+                setViewMode('profile');
+                onClose();
+              }}
+              className={`flex items-center gap-4 p-3 rounded-[24px] w-full transition-all border ${
+                viewMode === 'profile' ? 'bg-sky-50 border-sky-200' : 'border-transparent hover:bg-gray-50'
+              }`}
+            >
+              <div className="relative">
+                <img src={user.photoURL || ''} alt="" className="w-12 h-12 rounded-full border-2 border-white shadow-sm" />
+                <div className="absolute -bottom-1 -right-1 bg-green-500 w-4 h-4 rounded-full border-2 border-white" />
+              </div>
+              <div className="text-right flex-1">
+                <p className="font-black text-gray-900 text-sm leading-none mb-1">{user.displayName}</p>
+                <div className="flex items-center gap-1">
+                  <Settings size={10} className="text-sky-500" />
+                  <p className="text-[10px] text-sky-600 font-bold uppercase tracking-widest">פרופיל והגדרות</p>
+                </div>
+              </div>
+            </button>
+
             {installPrompt && (
               <button 
                 onClick={() => {
                   installPrompt.prompt();
                   onClose();
                 }}
-                className="w-full mb-4 flex items-center justify-center gap-2 bg-gray-900 text-white py-4 rounded-2xl font-bold shadow-xl active:scale-95 transition-transform"
+                className="w-full flex items-center justify-center gap-2 bg-gray-900 text-white py-4 rounded-2xl font-black text-sm shadow-xl active:scale-95 transition-transform"
               >
                 <Plus size={20} /> התקן כאפליקציה
               </button>
             )}
-            
-            <div className="flex items-center gap-4 mb-6 px-2">
-              <img src={user.photoURL || ''} alt="" className="w-12 h-12 rounded-full border-2 border-sky-100" />
-              <div>
-                <p className="font-bold text-gray-900 leading-none mb-1">{user.displayName}</p>
-                <p className="text-[10px] text-gray-400 font-bold uppercase">{user.email}</p>
-              </div>
-            </div>
             
             <button 
               onClick={() => {
                 logout();
                 onClose();
               }}
-              className="w-full flex items-center justify-center gap-2 text-red-500 font-bold p-4 hover:bg-red-50 rounded-2xl transition-colors"
+              className="w-full flex items-center justify-center gap-2 text-red-500 font-black text-sm p-4 hover:bg-red-50 rounded-2xl transition-colors"
             >
               <LogOut size={20} /> התנתק מהמערכת
             </button>
@@ -484,6 +499,19 @@ export default function App() {
     items: '',
     orderNumber: '',
     warehouse: 'החרש'
+  });
+
+  const [userProfile, setUserProfile] = useUserMemory<UserProfile>(user?.uid, 'user_profile', {
+    uid: user?.uid || '',
+    displayName: user?.displayName || '',
+    email: user?.email || '',
+    role: 'office',
+    photoURL: user?.photoURL || '',
+    preferences: {
+      notifications: true,
+      theme: 'light',
+      branch: 'both'
+    }
   });
 
   // Backward compatibility aliases for existing code
@@ -993,7 +1021,7 @@ export default function App() {
 
   if (viewMode === 'messenger') {
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col font-sans" dir="rtl">
+      <div className="h-screen bg-gray-50 flex flex-col font-sans overflow-hidden" dir="rtl">
         <Header 
           user={user} 
           onOpenDrawer={() => setIsDrawerOpen(true)}
@@ -1004,8 +1032,8 @@ export default function App() {
           isUploading={isUploadingDoc}
           onOpenReminders={() => setIsRemindersOpen(true)}
         />
-        <main className="flex-1 overflow-hidden">
-          <SabanMessenger />
+        <main className="flex-1 overflow-hidden relative">
+          <SabanMessenger userProfile={userProfile} />
         </main>
       </div>
     );
@@ -1643,7 +1671,12 @@ export default function App() {
         </div>
 
         <div className="space-y-4">
-          {viewMode === 'import' ? (
+          {viewMode === 'profile' ? (
+            <UserProfileView 
+              profile={userProfile} 
+              onUpdate={async (updates) => setUserProfile(updates)} 
+            />
+          ) : viewMode === 'import' ? (
             <DeliveryImport />
           ) : filteredOrders.length === 0 && (viewMode === 'list' || viewMode === 'kanban') ? (
             <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
