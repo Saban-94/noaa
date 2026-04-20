@@ -122,7 +122,7 @@ export const SabanMessenger = () => {
       // 2. Process with AI for Suggestions (only if it's a manager message or everyone)
       const aiResponse = await processChatMessage(messageText, auth.currentUser.displayName || 'אחי');
       
-      if (aiResponse.intent === 'chat' && aiResponse.answer) {
+      if (aiResponse.answer) {
         await addDoc(collection(db, 'messages'), {
           text: aiResponse.answer,
           senderId: 'system',
@@ -131,18 +131,9 @@ export const SabanMessenger = () => {
           visibility: 'everyone',
           type: 'system'
         });
-      } else if (aiResponse.intent === 'transfer' && aiResponse.data.eta) {
-        const { source, target, eta } = aiResponse.data;
-        await addDoc(collection(db, 'messages'), {
-          text: `נועה: נשמה, לבקשתך - העברה מ${source} תגיע ל${target} בעוד כ-${eta} דקות לפי עומסי התנועה אחי. הכל בשליטה.`,
-          senderId: 'system',
-          senderName: 'נועה',
-          timestamp: serverTimestamp(),
-          visibility: 'everyone',
-          type: 'system'
-        });
-        setSuggestion(aiResponse);
-      } else if (aiResponse.intent !== 'none' && aiResponse.intent !== 'chat') {
+      }
+
+      if (aiResponse.intent !== 'none' && aiResponse.intent !== 'chat') {
         setSuggestion(aiResponse);
       }
     } catch (err) {

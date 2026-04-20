@@ -185,21 +185,26 @@ export const processChatMessage = async (message: string, sender: string) => {
     נתח את הודעת הצ'אט הבאה בקבוצת העבודה של SabanOS.
     הודעה מאת ${sender}: "${message}"
     
-    1. אם ההודעה היא בקשת העברה בין סניפים (למשל "צריך העברה של מלט מהחרש"), חלץ:
-       - items: הפריטים להעברה
+    1. אם ההודעה היא בקשת העברה בין סניפים (החרש/התלמיד), חלץ:
+       - items: הפריטים להעברה (למשל: 50 שקי מלט)
        - source: סניף מקור (החרש/התלמיד)
-       - target: סניף יעד
-       במידה וחסר מידע, השלם לפי ההקשר (אם המקור החרש, היעד כנראה התלמיד).
+       - target: סניף יעד (החרש/התלמיד)
+       - אחי, אם חסר סניף מקור או יעד, תשלים אותו באופן חכם:
+         * אם המקור הוא "החרש", היעד הוא "התלמיד".
+         * אם המקור הוא "התלמיד", היעד הוא "החרש".
+         * אם מצוין רק "להעביר לתלמיד", המקור הוא "החרש".
     
-    2. אם ההודעה היא בקשת הזמנה חדשה שצריך להוסיף לסידור, חלץ פרטים.
+    2. אם ההודעה היא בקשת הזמנה חדשה ללקוח, חלץ פרטים (שם לקוח, יעד, פריטים).
     
-    3. אם ההודעה היא שאלה כללית ל"נועה", ענה עליה בסגנון של ח. סבן ("נשמה", "שותף", "הכל בשליטה").
+    3. אם זו שאלה כללית או חסר מידע קריטי שאי אפשר להשלים, ענה בסגנון "ח. סבן" (חם, חברי, "נשמה", "שותף").
     
-    תחזיר אובייקט JSON עם:
-    - intent: "transfer" / "order" / "chat" / "none"
-    - data: הפרטים שחילצת
-    - suggestion: הצעה לפעולה (טקסט קצר ומקצועי)
-    - answer: תשובה ישירה (אם זה chat intent)
+    תחזיר JSON בלבד:
+    {
+      "intent": "transfer" | "order" | "chat" | "none",
+      "data": { ... },
+      "suggestion": "טקסט לכפתור פעולה",
+      "answer": "תשובה ישירה מהירה"
+    }
   `;
 
   const response = await ai.models.generateContent({
@@ -213,13 +218,20 @@ export const processChatMessage = async (message: string, sender: string) => {
   const aiResult = JSON.parse(response.text || "{}");
 
   // Post-process for ETA if it's a transfer
-  if (aiResult.intent === 'transfer') {
-    const source = aiResult.data.source === 'החרש' ? 'החרש 10, הוד השרון' : 'התלמיד 6, הוד השרון';
-    const dest = aiResult.data.target === 'החרש' ? 'החרש 10, הוד השרון' : 'התלמיד 6, הוד השרון';
+  if (aiResult.intent === 'transfer' && aiResult.data.source && aiResult.data.target) {
     const history = await fetchOrders();
-    const etaStr = await predictOrderEta({ destination: dest, warehouse: aiResult.data.source } as any, history);
+    const sourceLoc = aiResult.data.source === 'החרש' ? 'החרש 10, הוד השרון' : 'התלמיד 6, הוד השרון';
+    const destLoc = aiResult.data.target === 'החרש' ? 'החרש 10, הוד השרון' : 'התלמיד 6, הוד השרון';
+    
+    const etaStr = await predictOrderEta({ 
+      destination: destLoc, 
+      warehouse: aiResult.data.source,
+      items: aiResult.data.items 
+    } as any, history);
+    
     aiResult.data.eta = etaStr;
-    aiResult.suggestion = `בצע העברה: ${aiResult.data.items} (ETA: ${etaStr || 'מחשבת...'})`;
+    aiResult.suggestion = `בצע העברה: ${aiResult.data.items} (הגעה משוערת: ${etaStr || 'בקרוב'})`;
+    aiResult.answer = `נועה: נשמה, זיהיתי שאתה צריך העברה של ${aiResult.data.items} מ${aiResult.data.source} ל${aiResult.data.target}. צפי הגעה: ${etaStr || 'מחשבת...'}. ללחוץ על הכפתור כדי לאשר?`;
   }
 
   return aiResult;
