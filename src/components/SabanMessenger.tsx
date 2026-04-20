@@ -19,7 +19,9 @@ import {
   Lock,
   Users,
   ListTodo,
-  Video
+  Video,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, deleteDoc, doc, updateDoc, Timestamp } from 'firebase/firestore';
@@ -46,6 +48,31 @@ export const SabanMessenger = () => {
   const [isUploading, setIsUploading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const markReadDone = useRef<Set<string>>(new Set());
+
+  // Mark as read logic
+  useEffect(() => {
+    if (!auth.currentUser || messages.length === 0) return;
+
+    const unreadMsgs = messages.filter(m => 
+      m.id && 
+      m.senderId !== auth.currentUser?.uid && 
+      (!m.readBy || !m.readBy.includes(auth.currentUser?.uid || '')) &&
+      !markReadDone.current.has(m.id)
+    );
+
+    unreadMsgs.forEach(async (msg) => {
+      if (!msg.id || !auth.currentUser) return;
+      markReadDone.current.add(msg.id);
+      try {
+        const docRef = doc(db, 'messages', msg.id);
+        const newReadBy = [...(msg.readBy || []), auth.currentUser.uid];
+        await updateDoc(docRef, { readBy: newReadBy });
+      } catch (err) {
+        console.error("Error marking as read:", err);
+      }
+    });
+  }, [messages, auth.currentUser]);
 
   // Auto-scan new file messages
   useEffect(() => {
@@ -341,7 +368,27 @@ export const SabanMessenger = () => {
                 
                 <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} max-w-[85%] sm:max-w-[70%]`}>
                   {showAvatar && !isMe && !isSystem && (
-                    <span className="text-[10px] font-bold text-gray-500 mb-1 px-2">{msg.senderName}</span>
+                    <div className="flex items-center gap-1 mb-1 px-2">
+                      <span className="text-[10px] font-bold text-gray-500">{msg.senderName}</span>
+                      {msg.readBy && msg.readBy.length > 0 && (
+                        <Eye size={10} className="text-sky-400" />
+                      )}
+                    </div>
+                  )}
+                  {isMe && (
+                    <div className="flex items-center gap-1 mb-1 px-2">
+                       {msg.readBy && msg.readBy.length > 0 ? (
+                         <div className="flex items-center gap-1">
+                           <span className="text-[9px] text-sky-400 font-bold">נצפה</span>
+                           <Eye size={10} className="text-sky-400" />
+                         </div>
+                       ) : (
+                         <div className="flex items-center gap-1">
+                           <span className="text-[9px] text-gray-300">טרם נקרא</span>
+                           <EyeOff size={10} className="text-gray-300" />
+                         </div>
+                       )}
+                    </div>
                   )}
                   <div 
                     onPointerDown={() => !isSystem && startLongPress(msg)}
@@ -411,8 +458,21 @@ export const SabanMessenger = () => {
                       </div>
                     )}
                     <div className={`flex items-center gap-1 mt-1 ${isMe ? 'justify-end text-sky-100' : 'justify-start text-gray-400'} text-[9px]`}>
-                       {msg.timestamp?.toDate ? format(msg.timestamp.toDate(), 'HH:mm') : 'עכשיו'}
-                       {isMe && <CheckCheck size={12} className="text-white/70" />}
+                       {msg.timestamp?.toDate ? format(msg.timestamp.toDate(), 'HH:mm') : 'שולח...'}
+                       {isMe && (
+                          <div className="flex items-center gap-0.5">
+                            {!msg.timestamp ? (
+                              <img 
+                                src="https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHJndnZndnZndnZndnZndnZndnZndnZndnZndnZndnZndnZndmksZ3A9MSZ2PTE/3o7TKMGpxr9J5l5n9e/giphy.gif" 
+                                alt="sending"
+                                className="w-3 h-3 grayscale invert brightness-200"
+                                referrerPolicy="no-referrer"
+                              />
+                            ) : (
+                              <CheckCheck size={12} className="text-white/70" />
+                            )}
+                          </div>
+                        )}
                     </div>
 
                     <button 

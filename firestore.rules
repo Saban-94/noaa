@@ -83,8 +83,14 @@ service cloud.firestore {
         && data.text is string && data.text.size() <= 4000
         && data.senderId == request.auth.uid
         && data.visibility in ['everyone', 'managers']
-        && data.type in ['text', 'image', 'file', 'system']
-        && data.timestamp is timestamp;
+        && data.type in ['text', 'image', 'file', 'video', 'system']
+        && data.timestamp is timestamp
+        // Optional fields for file/image/video
+        && (!('fileUrl' in data) || data.fileUrl is string)
+        && (!('fileName' in data) || data.fileName is string)
+        && (!('fileType' in data) || data.fileType is string)
+        && (!('metadata' in data) || data.metadata is map)
+        && (!('readBy' in data) || data.readBy is list);
     }
 
     function isValidTransfer(data) {
@@ -159,6 +165,15 @@ service cloud.firestore {
       );
       allow create: if isEmailVerified() && isValidMessage(incoming())
                      && incoming().timestamp == request.time;
+      allow update: if isEmailVerified() && (
+        // Allow marking as read: only the readBy field can be changed
+        incoming().diff(existing()).affectedKeys().hasOnly(['readBy']) &&
+        // Current user must be adding themselves to the list
+        request.auth.uid in incoming().readBy &&
+        // Existing data must be preserved (mostly)
+        incoming().text == existing().text &&
+        incoming().senderId == existing().senderId
+      );
       allow delete: if isAdmin() || (isEmailVerified() && resource.data.senderId == request.auth.uid);
     }
 

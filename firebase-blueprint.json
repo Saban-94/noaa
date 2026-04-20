@@ -87,7 +87,8 @@
         "senderName": { "type": "string" },
         "timestamp": { "type": "string", "format": "date-time" },
         "visibility": { "type": "string", "enum": ["everyone", "managers"] },
-        "type": { "type": "string", "enum": ["text", "image", "file", "system"] }
+        "type": { "type": "string", "enum": ["text", "image", "file", "video", "system"] },
+        "readBy": { "type": "array", "items": { "type": "string" }, "description": "UIDs of users who read this message" }
       },
       "required": ["text", "senderId", "senderName", "timestamp", "visibility", "type"]
     },

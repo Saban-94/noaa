@@ -34,6 +34,7 @@ export interface ChatMessage {
   fileName?: string;
   fileType?: string;
   metadata?: any;
+  readBy?: string[];
 }
 
 export interface InterBranchTransfer {
