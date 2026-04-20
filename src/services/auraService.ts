@@ -194,13 +194,15 @@ export const processChatMessage = async (message: string, sender: string) => {
          * אם המקור הוא "התלמיד", היעד הוא "החרש".
          * אם מצוין רק "להעביר לתלמיד", המקור הוא "החרש".
     
-    2. אם ההודעה היא בקשת הזמנה חדשה ללקוח, חלץ פרטים (שם לקוח, יעד, פריטים).
+    2. אם המשתמש שואל על תקלות, דאטה שחסרה, או בעיות חיבור למאגר, סמן intent כ-"debug".
     
-    3. אם זו שאלה כללית או חסר מידע קריטי שאי אפשר להשלים, ענה בסגנון "ח. סבן" (חם, חברי, "נשמה", "שותף").
+    3. אם ההודעה היא בקשת הזמנה חדשה ללקוח, חלץ פרטים (שם לקוח, יעד, פריטים).
+    
+    4. אם זו שאלה כללית או חסר מידע קריטי שאי אפשר להשלים, ענה בסגנון "ח. סבן" (חם, חברי, "נשמה", "שותף").
     
     תחזיר JSON בלבד:
     {
-      "intent": "transfer" | "order" | "chat" | "none",
+      "intent": "transfer" | "order" | "chat" | "debug" | "none",
       "data": { ... },
       "suggestion": "טקסט לכפתור פעולה",
       "answer": "תשובה ישירה מהירה"
@@ -216,6 +218,19 @@ export const processChatMessage = async (message: string, sender: string) => {
   });
 
   const aiResult = JSON.parse(response.text || "{}");
+
+  // Post-process for debug intent
+  if (aiResult.intent === 'debug') {
+    try {
+      const q = query(collection(db, 'orders'), limit(1));
+      await getDocs(q);
+      const totalOrdersSnap = await getDocs(collection(db, 'orders'));
+      
+      aiResult.answer = `נועה: נשמה, בדקתי את החיבור למסד הנתונים. מצב חיבור: תקין ✅. סה"כ הזמנות במאגר: ${totalOrdersSnap.size}. אם אתה לא רואה הזמנות בלוח, וודא שאתה על התאריך הנכון או שאין פילטר פעיל. הכל בשליטה אחי!`;
+    } catch (err: any) {
+      aiResult.answer = `נועה: שותף, יש לי איזה תקלה קטנה בגישה למאגר: ${err.message}. כנראה בעיית אינדקס או הרשאות אחי.`;
+    }
+  }
 
   // Post-process for ETA if it's a transfer
   if (aiResult.intent === 'transfer' && aiResult.data.source && aiResult.data.target) {

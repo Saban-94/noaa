@@ -441,6 +441,7 @@ export default function App() {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [orderError, setOrderError] = useState<string | null>(null);
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [isRemindersOpen, setIsRemindersOpen] = useState(false);
@@ -758,6 +759,11 @@ export default function App() {
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Order[];
       setOrders(docs);
+      setOrderError(null);
+    }, (error) => {
+      console.error("Order snapshot error:", error);
+      setOrderError(error.message);
+      addToast('שגיאה בטעינת נתונים', `נשמה, יש בעיה עם המאגר: ${error.message}`, 'warning');
     });
 
     return () => unsubscribe();
@@ -1297,6 +1303,15 @@ export default function App() {
       </AnimatePresence>
 
       <main className="flex-1 max-w-5xl w-full mx-auto p-4 md:p-8 pb-32 sm:pb-8">
+        {orderError && (
+          <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-3xl flex items-center gap-3 text-amber-800 shadow-sm animate-pulse">
+            <AlertTriangle className="text-amber-500" size={24} />
+            <div className="flex-1 text-right">
+              <p className="text-sm font-bold">שגיאה בחיבור למסד הנתונים אחי</p>
+              <p className="text-[10px] opacity-80">{orderError}</p>
+            </div>
+          </div>
+        )}
         <div className="pb-[env(safe-area-inset-bottom)]">
         {viewMode === 'list' ? (
           <div className="bg-white/80 backdrop-blur-md p-4 rounded-3xl shadow-sm border border-sky-100 mb-8">
