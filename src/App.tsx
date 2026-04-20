@@ -73,7 +73,7 @@ import { DriverList } from './components/DriverList';
 import { DriverCard } from './components/DriverCard';
 import { SearchSuggestions } from './components/SearchSuggestions';
 import { NoaChat } from './components/NoaChat';
-import { initOneSignal, sendOrderNotification } from './services/notificationService';
+import { initOneSignal, sendOrderNotification, requestNotificationPermission } from './services/notificationService';
 import { DeliveryImport } from './components/DeliveryImport';
 import { SabanMessenger } from './components/SabanMessenger';
 import { UserProfileView } from './components/UserProfile';
@@ -741,14 +741,21 @@ export default function App() {
 
   const toggleNotifications = async () => {
     if (!notificationsEnabled) {
-      const permission = await Notification.requestPermission();
-      if (permission === 'granted') {
-        setNotificationsEnabled(true);
-      } else {
-        alert('כדי לקבל התראות צריך לאשר אותן בדפדפן אחי.');
+      try {
+        const isGranted = await requestNotificationPermission();
+        if (isGranted) {
+          setNotificationsEnabled(true);
+          addToast('התראות פעילות', 'מעכשיו תקבל עדכונים ישירות למכשיר אחי ✅', 'success');
+        } else {
+          addToast('התראות חסומות', 'כדי לקבל התראות צריך לאשר אותן בהגדרות הדפדפן אחי.', 'warning');
+        }
+      } catch (error) {
+        console.error("Failed to enable notifications:", error);
+        addToast('שגיאה', 'לא הצלחתי להפעיל את ההתראות אחי.', 'warning');
       }
     } else {
       setNotificationsEnabled(false);
+      addToast('התראות כבויות', 'לא תקבל יותר התראות למכשיר אחי.', 'info');
     }
   };
 

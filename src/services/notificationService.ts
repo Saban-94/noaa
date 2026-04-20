@@ -42,6 +42,17 @@ export const initOneSignal = async () => {
   }
 };
 
+export const requestNotificationPermission = async () => {
+  try {
+    if (!isInitialized) await initOneSignal();
+    await OneSignal.Notifications.requestPermission();
+    return !!OneSignal.Notifications.permission;
+  } catch (err) {
+    console.error("Error requesting notification permission:", err);
+    return false;
+  }
+};
+
 export const sendOrderNotification = async (title: string, message: string) => {
   // Use VITE_ prefix for client-accessible env variables in Vite
   const apiKey = (import.meta as any).env.VITE_ONESIGNAL_REST_API_KEY;
