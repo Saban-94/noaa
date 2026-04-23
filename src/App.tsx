@@ -340,13 +340,22 @@ const Drawer = ({
   </AnimatePresence>
 );
 
-const EmptyState = () => (
+const EmptyState = ({ onSeed }: { onSeed?: () => void }) => (
   <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
     <div className="bg-gray-100 p-6 rounded-full mb-4">
       <CalendarIcon className="text-gray-400" size={48} />
     </div>
     <h3 className="text-lg font-bold text-gray-800">אין הזמנות ליום הזה</h3>
     <p className="text-gray-500 mt-2 max-w-xs text-sm">הסידור ריק בינתיים אחי. אפשר להוסיף הזמנה חדשה או לבקש מ-Aura לעזור.</p>
+    {onSeed && (
+      <button 
+        onClick={onSeed}
+        className="mt-6 flex items-center gap-2 bg-sky-50 text-sky-600 px-6 py-3 rounded-2xl font-bold text-sm border border-sky-100 hover:bg-sky-100 transition-all shadow-sm"
+      >
+        <Sparkles size={18} />
+        צור הזמנות לדוגמה אחי
+      </button>
+    )}
   </div>
 );
 
@@ -894,6 +903,75 @@ export default function App() {
   }, [chatHistory]);
 
   // --- Aura AI Handlers ---
+  const handleSeedData = async () => {
+    const confirm = window.confirm('אחי, להוסיף 5 הזמנות לדוגמה למאגר? זה יעזור לך לראות איך הכל עובד.');
+    if (!confirm) return;
+
+    addToast('מייצרת דאטה', 'מוסיפה הזמנות לדוגמה אחי...', 'info');
+    
+    const sampleOrders: Partial<Order>[] = [
+      {
+        customerName: 'י.ד. לוינסקי',
+        destination: 'שדרות רוטשילד 10, תל אביב',
+        items: '20 שקי מלט, 5 קוב חול',
+        orderNumber: 'LT-8890',
+        date: format(new Date(), 'yyyy-MM-dd'),
+        time: '08:30',
+        warehouse: 'החרש',
+        status: 'pending'
+      },
+      {
+        customerName: 'גב-ים נדלן',
+        destination: 'פארק המדע, רחובות',
+        items: '12 משטחי בלוקים, 2 דבקים',
+        orderNumber: 'GY-1122',
+        date: format(new Date(), 'yyyy-MM-dd'),
+        time: '10:15',
+        warehouse: 'התלמיד',
+        status: 'preparing'
+      },
+      {
+        customerName: 'משה ובניו בעמ',
+        destination: 'הרצליה פיתוח',
+        items: 'משטח גבס, 10 פרופילים',
+        orderNumber: 'MB-5544',
+        date: format(new Date(), 'yyyy-MM-dd'),
+        time: '13:00',
+        warehouse: 'החרש',
+        status: 'ready'
+      },
+      {
+        customerName: 'סולל בונה',
+        destination: 'נתניה מרכז',
+        items: 'חצץ, 40 שקי טיח',
+        orderNumber: 'SB-0099',
+        date: format(new Date(), 'yyyy-MM-dd'),
+        time: '15:45',
+        warehouse: 'החרש',
+        status: 'pending'
+      },
+      {
+        customerName: 'אשטרום',
+        destination: 'חיפה נמל',
+        items: 'פלדה, 5 משטחי איטום',
+        orderNumber: 'AS-3321',
+        date: format(addDays(new Date(), 1), 'yyyy-MM-dd'),
+        time: '09:00',
+        warehouse: 'התלמיד',
+        status: 'pending'
+      }
+    ];
+
+    try {
+      for (const order of sampleOrders) {
+        await createOrder(order);
+      }
+      addToast('סיימתי אחי', 'ההזמנות נוספו בהצלחה! תהנה ✅', 'success');
+    } catch (err: any) {
+      addToast('שגיאה אחי', `לא הצלחתי להוסיף: ${err.message}`, 'warning');
+    }
+  };
+
   const handleAuraAction = async (msg: string) => {
     const userMsg = { role: 'user', parts: [{ text: msg }] };
     setChatHistory(prev => [...prev, userMsg]);
@@ -1685,7 +1763,9 @@ export default function App() {
             />
           ) : viewMode === 'import' ? (
             <DeliveryImport />
-          ) : filteredOrders.length === 0 && (viewMode === 'list' || viewMode === 'kanban') ? (
+          ) : orders.length === 0 ? (
+            <EmptyState onSeed={handleSeedData} />
+          ) : filteredOrders.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
               <div className="bg-gray-100 p-4 rounded-full mb-3 text-gray-400">
                 <Search size={32} />
