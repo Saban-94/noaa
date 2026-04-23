@@ -44,11 +44,13 @@ import {
   Paperclip,
   Loader2,
   ListTodo,
-  FileSpreadsheet
+  FileSpreadsheet,
+  LayoutGrid,
+  List
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
-import { collection, onSnapshot, query, where, orderBy, deleteDoc, doc, getDocs } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, orderBy, deleteDoc, doc, getDocs, limit } from 'firebase/firestore';
 import { 
   format, 
   addDays, 
@@ -471,6 +473,7 @@ export default function App() {
   const [isRemindersOpen, setIsRemindersOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [chatHistory, setChatHistory] = useState<any[]>([]);
+  const [messengerMessages, setMessengerMessages] = useState<any[]>([]);
   const [isAddingOrder, setIsAddingOrder] = useState(false);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [isUploadingDoc, setIsUploadingDoc] = useState(false);
@@ -481,6 +484,14 @@ export default function App() {
   useEffect(() => {
     notificationAudio.current = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
     notificationAudio.current.volume = 0.5;
+  }, []);
+
+  useEffect(() => {
+    const q = query(collection(db, 'messages'), orderBy('timestamp', 'desc'), limit(50));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setMessengerMessages(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+    return () => unsubscribe();
   }, []);
 
   const playNotification = () => {
@@ -989,12 +1000,16 @@ export default function App() {
     }
   };
 
-  const handleAuraAction = async (msg: string) => {
-    const userMsg = { role: 'user', parts: [{ text: msg }] };
+  const handleAuraAction = async (msg: string, imageData?: { data: string, mimeType: string }) => {
+    const userParts: any[] = [{ text: msg }];
+    if (imageData) {
+       userParts.push({ inlineData: imageData });
+    }
+    const userMsg = { role: 'user', parts: userParts };
     setChatHistory(prev => [...prev, userMsg]);
     
     try {
-      const result = await askNoa(msg, chatHistory);
+      const result = await askNoa(msg, chatHistory, imageData);
       
       // Extract text parts carefully to avoid SDK warnings about non-text parts (function calls)
       const textResponse = result.candidates?.[0]?.content?.parts
@@ -1916,7 +1931,7 @@ export default function App() {
           >
             <div className="relative flex flex-col items-center">
               <item.icon size={22} strokeWidth={viewMode === item.view ? 3 : 2} />
-              {item.view === 'messenger' && messages.filter(m => m.senderId !== auth.currentUser?.uid && (!m.readBy || !m.readBy.includes(auth.currentUser?.uid || ''))).length > 0 && (
+              {item.view === 'messenger' && messengerMessages.filter(m => m.senderId !== auth.currentUser?.uid && (!m.readBy || !m.readBy.includes(auth.currentUser?.uid || ''))).length > 0 && (
                 <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-sky-600 rounded-full animate-pulse border-2 border-white" />
               )}
               <span className="text-[9px] font-black uppercase tracking-tighter mt-1">{item.label}</span>

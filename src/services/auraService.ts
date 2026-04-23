@@ -636,8 +636,12 @@ export const tools = [
   }
 ];
 
-export async function askNoa(message: string, history: any[] = []) {
-  const contents = [...history, { role: 'user', parts: [{ text: message }] }];
+export async function askNoa(message: string, history: any[] = [], imageData?: { data: string, mimeType: string }) {
+  const parts: any[] = [{ text: message }];
+  if (imageData) {
+    parts.push({ inlineData: imageData });
+  }
+  const contents = [...history, { role: 'user', parts }];
   return await processNoaTurn(contents);
 }
 
