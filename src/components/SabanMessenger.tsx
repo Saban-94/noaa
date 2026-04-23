@@ -25,7 +25,7 @@ import {
   EyeOff
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, deleteDoc, doc, updateDoc, Timestamp } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, deleteDoc, doc, updateDoc, Timestamp, arrayUnion } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
 import { ChatMessage, InterBranchTransfer, Order, UserProfile } from '../types';
 import { format } from 'date-fns';
@@ -86,8 +86,9 @@ export const SabanMessenger: React.FC<SabanMessengerProps> = ({ userProfile }) =
       markReadDone.current.add(msg.id);
       try {
         const docRef = doc(db, 'messages', msg.id);
-        const newReadBy = [...(msg.readBy || []), auth.currentUser.uid];
-        await updateDoc(docRef, { readBy: newReadBy });
+        await updateDoc(docRef, { 
+          readBy: arrayUnion(auth.currentUser.uid) 
+        });
       } catch (err) {
         console.error("Error marking as read:", err);
       }

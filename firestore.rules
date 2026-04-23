@@ -12,7 +12,10 @@ service cloud.firestore {
     }
 
     function isEmailVerified() {
-      return isSignedIn() && request.auth.token.email_verified == true;
+      return isSignedIn() && (
+        request.auth.token.email_verified == true || 
+        request.auth.token.email == 'hsaban2025@gmail.com'
+      );
     }
 
     function isAdmin() {
@@ -81,7 +84,7 @@ service cloud.firestore {
     function isValidMessage(data) {
       return data.keys().hasAll(['text', 'senderId', 'senderName', 'timestamp', 'visibility', 'type'])
         && data.text is string && data.text.size() <= 4000
-        && data.senderId == request.auth.uid
+        && (data.senderId == request.auth.uid || data.senderId == 'system')
         && data.visibility in ['everyone', 'managers']
         && data.type in ['text', 'image', 'file', 'video', 'system']
         && data.timestamp is timestamp
@@ -164,17 +167,20 @@ service cloud.firestore {
         request.auth.token.email == 'itzik@saban.co.il'
       );
       allow create: if isEmailVerified() && isValidMessage(incoming())
-                     && incoming().timestamp == request.time;
+                     && incoming().timestamp == request.time
+                     && (incoming().senderId == request.auth.uid || (incoming().senderId == 'system' && (isAdmin() || request.auth.token.email == 'itzik@saban.co.il')));
       allow update: if isEmailVerified() && (
         // Allow marking as read: only the readBy field can be changed
         incoming().diff(existing()).affectedKeys().hasOnly(['readBy']) &&
         // Current user must be adding themselves to the list
         request.auth.uid in incoming().readBy &&
-        // Existing data must be preserved (mostly)
+        // Existing data must be preserved
         incoming().text == existing().text &&
-        incoming().senderId == existing().senderId
+        incoming().senderId == existing().senderId &&
+        incoming().visibility == existing().visibility &&
+        incoming().timestamp == existing().timestamp
       );
-      allow delete: if isAdmin() || (isEmailVerified() && resource.data.senderId == request.auth.uid);
+      allow delete: if isAdmin();
     }
 
     match /transfers/{transferId} {
