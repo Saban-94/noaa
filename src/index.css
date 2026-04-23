@@ -19,10 +19,8 @@
     background-attachment: fixed;
     -webkit-tap-highlight-color: transparent;
     width: 100%;
-    position: fixed;
-    height: 100vh;
-    overflow: hidden;
-    overscroll-behavior: none;
+    min-height: 100vh;
+    scroll-behavior: smooth;
   }
 
   button, a, .clickable {

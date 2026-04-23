@@ -55,6 +55,18 @@ export const SabanMessenger: React.FC<SabanMessengerProps> = ({ userProfile }) =
   const [isUploading, setIsUploading] = useState(false);
   const [longPressingId, setLongPressingId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const notificationAudio = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    notificationAudio.current = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+    notificationAudio.current.volume = 0.5;
+  }, []);
+
+  const playNotification = () => {
+    if (notificationAudio.current) {
+      notificationAudio.current.play().catch(() => {});
+    }
+  };
   const fileInputRef = useRef<HTMLInputElement>(null);
   const markReadDone = useRef<Set<string>>(new Set());
 
@@ -130,7 +142,10 @@ export const SabanMessenger: React.FC<SabanMessengerProps> = ({ userProfile }) =
 
   useEffect(() => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      scrollRef.current.scrollTo({
+        top: scrollRef.current.scrollHeight,
+        behavior: 'smooth'
+      });
     }
   }, [messages]);
 
@@ -172,6 +187,7 @@ export const SabanMessenger: React.FC<SabanMessengerProps> = ({ userProfile }) =
           visibility: 'everyone',
           type: 'system'
         });
+        playNotification();
       }
 
       if (aiResponse.intent !== 'none' && aiResponse.intent !== 'chat') {

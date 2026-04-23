@@ -476,6 +476,20 @@ export default function App() {
   const [isUploadingDoc, setIsUploadingDoc] = useState(false);
   const [toasts, setToasts] = useState<any[]>([]);
   const chatScrollRef = useRef<HTMLDivElement>(null);
+  const notificationAudio = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    notificationAudio.current = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+    notificationAudio.current.volume = 0.5;
+  }, []);
+
+  const playNotification = () => {
+    if (notificationAudio.current) {
+      notificationAudio.current.play().catch(() => {
+        // Ignore play errors (usually due to user interaction policies)
+      });
+    }
+  };
 
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
@@ -898,7 +912,10 @@ export default function App() {
 
   useEffect(() => {
     if (chatScrollRef.current) {
-      chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+      chatScrollRef.current.scrollTo({
+        top: chatScrollRef.current.scrollHeight,
+        behavior: 'smooth'
+      });
     }
   }, [chatHistory]);
 
@@ -1056,6 +1073,7 @@ export default function App() {
 
       const auraResponse = { role: 'model', parts: [{ text: textResponse || "בוצע אחי." }] };
       setChatHistory(prev => [...prev, auraResponse]);
+      playNotification();
     } catch (err) {
       console.error(err);
       setChatHistory(prev => [...prev, { role: 'model', parts: [{ text: "משהו לא הסתדר אחי, תנסה שוב." }] }]);
