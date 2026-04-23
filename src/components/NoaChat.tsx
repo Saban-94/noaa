@@ -8,10 +8,7 @@ import {
   VolumeX,
   Speaker,
   Settings,
-  Waves,
-  Image as ImageIcon,
-  Loader2,
-  Paperclip
+  Waves
 } from 'lucide-react';
 import { Order } from '../types';
 import { parseItems } from '../lib/utils';
@@ -20,7 +17,7 @@ interface NoaChatProps {
   chatHistory: any[];
   chatScrollRef: React.RefObject<HTMLDivElement>;
   onBack: () => void;
-  onAction: (action: string, imageData?: { data: string, mimeType: string }) => void;
+  onAction: (action: string) => void;
   orders: Order[];
 }
 
@@ -33,8 +30,6 @@ export const NoaChat = ({
 }: NoaChatProps) => {
   const [isAutoVoice, setIsAutoVoice] = useState(() => localStorage.getItem('noa_auto_voice') === 'true');
   const [currentlySpeaking, setCurrentlySpeaking] = useState<number | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const synthRef = useRef<SpeechSynthesis | null>(window.speechSynthesis);
 
   // Persistence of auto voice setting
@@ -271,67 +266,26 @@ export const NoaChat = ({
             </div>
 
             <form 
-              onSubmit={async (e) => {
+              onSubmit={(e) => {
                 e.preventDefault();
                 const form = e.target as HTMLFormElement;
                 const input = form.elements.namedItem('message') as HTMLInputElement;
                 const val = input.value;
-                const files = fileInputRef.current?.files;
-                
-                if (!val && (!files || files.length === 0)) return;
-                
-                let imageData;
-                if (files && files.length > 0) {
-                  const file = files[0];
-                  setIsUploading(true);
-                  try {
-                    const base64 = await new Promise<string>((resolve, reject) => {
-                      const reader = new FileReader();
-                      reader.onload = () => resolve((reader.result as string).split(',')[1]);
-                      reader.onerror = reject;
-                      reader.readAsDataURL(file);
-                    });
-                    imageData = { data: base64, mimeType: file.type };
-                  } catch (err) {
-                    console.error("Image processing error:", err);
-                  }
-                }
-
-                onAction(val || "נתחי את התמונה הזו אחי", imageData);
+                if (!val) return;
+                onAction(val);
                 input.value = '';
-                if (fileInputRef.current) fileInputRef.current.value = '';
-                setIsUploading(false);
               }}
               className="flex gap-3 items-center"
             >
-              <div className="relative flex-1 flex items-center">
-                <input 
-                  type="file" 
-                  ref={fileInputRef} 
-                  className="hidden" 
-                  accept="image/*"
-                  onChange={() => {
-                    // Optional: show preview or just let user send
-                  }}
-                />
-                <button 
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className={`absolute right-4 p-2 rounded-full transition-all ${isUploading ? 'text-sky-600' : 'text-gray-400 hover:text-sky-600 hover:bg-sky-50'}`}
-                >
-                  {isUploading ? <Loader2 size={20} className="animate-spin" /> : <ImageIcon size={20} />}
-                </button>
-                <input 
-                  name="message"
-                  autoComplete="off"
-                  placeholder={isUploading ? "מעבדת תמונה..." : "דבר איתי אחי..."}
-                  className="w-full bg-white/90 backdrop-blur-md border-[3px] border-sky-100 rounded-[2.5rem] pr-14 pl-5 md:pl-8 py-3.5 md:py-4 text-sm md:text-base focus:border-sky-600 transition-all outline-none shadow-2xl font-bold"
-                />
-              </div>
+              <input 
+                name="message"
+                autoComplete="off"
+                placeholder="דבר איתי אחי..."
+                className="flex-1 bg-white/90 backdrop-blur-md border-[3px] border-sky-100 rounded-[2.5rem] px-5 md:px-8 py-3.5 md:py-4 text-sm md:text-base focus:border-sky-600 transition-all outline-none shadow-2xl font-bold"
+              />
               <button 
                 type="submit"
-                disabled={isUploading}
-                className="bg-gray-900 text-white p-3.5 md:p-4 rounded-full hover:bg-sky-600 transition-all shadow-2xl hover:scale-105 active:scale-95 flex items-center justify-center shrink-0 disabled:opacity-50"
+                className="bg-gray-900 text-white p-3.5 md:p-4 rounded-full hover:bg-sky-600 transition-all shadow-2xl hover:scale-105 active:scale-95 flex items-center justify-center shrink-0"
               >
                 <Send size={20} className="md:w-6 md:h-6" strokeWidth={2.5} />
               </button>

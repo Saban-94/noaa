@@ -1,43 +1,27 @@
 import { initializeApp } from 'firebase/app';
-import { getFirestore } from 'firebase/firestore';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
-
-const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID
-};
-
-// וידוא שהגדרות קיימות
-if (!firebaseConfig.apiKey) {
-  console.error("❌ Firebase API Key is missing! Check your Vercel Environment Variables.");
-}
+import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } from 'firebase/auth';
+import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
+import firebaseConfig from '../../firebase-applet-config.json';
 
 const app = initializeApp(firebaseConfig);
+export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId); // Use the DB ID from config
+export const auth = getAuth();
+export const googleProvider = new GoogleAuthProvider();
 
-export const db = getFirestore(app);
-export const auth = getAuth(app);
-
-export const loginWithGoogle = async () => {
-  const provider = new GoogleAuthProvider();
+// Test connection on boot
+async function testConnection() {
   try {
-    const result = await signInWithPopup(auth, provider);
-    return result.user;
+    await getDocFromServer(doc(db, 'test', 'connection'));
   } catch (error) {
-    console.error("Google Login Error:", error);
-    throw error;
+    if (error instanceof Error && error.message.includes('permission-denied')) {
+      // Permission denied is actually a good sign of connection if rules are non-public
+      console.log("Firebase connection verified (permission denied as expected).");
+    } else if (error instanceof Error && error.message.includes('the client is offline')) {
+      console.error("Please check your Firebase configuration or internet connection.");
+    }
   }
-};
+}
+testConnection();
 
-export const logout = async () => {
-  try {
-    await signOut(auth);
-  } catch (error) {
-    console.error("Logout Error:", error);
-  }
-};
-
-export default app;
+export const loginWithGoogle = () => signInWithPopup(auth, googleProvider);
+export const logout = () => auth.signOut();

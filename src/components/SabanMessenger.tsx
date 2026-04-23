@@ -54,7 +54,6 @@ export const SabanMessenger: React.FC<SabanMessengerProps> = ({ userProfile }) =
   const [visibility, setVisibility] = useState<'everyone' | 'managers'>('everyone');
   const [isUploading, setIsUploading] = useState(false);
   const [longPressingId, setLongPressingId] = useState<string | null>(null);
-  const [selectedImage, setSelectedImage] = useState<{ url: string, name: string } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const notificationAudio = useRef<HTMLAudioElement | null>(null);
 
@@ -462,26 +461,28 @@ export const SabanMessenger: React.FC<SabanMessengerProps> = ({ userProfile }) =
                       </div>
                     )}
                     {msg.type === 'image' && (
-                      <div 
-                        className="mt-2 rounded-xl overflow-hidden border border-white/20 shadow-md group/msg cursor-pointer active:scale-95 transition-transform"
-                        onClick={() => setSelectedImage({ url: msg.fileUrl!, name: msg.fileName || 'תמונה' })}
-                      >
-                        <div className="bg-gray-100 min-h-[120px] max-h-[300px] flex items-center justify-center text-gray-400 relative overflow-hidden">
-                           <ImageIcon size={48} className="absolute opacity-10" />
+                      <div className="mt-2 rounded-xl overflow-hidden border border-white/20 shadow-inner group/msg">
+                        {/* We use the public thumbnail if available, or just a placeholder for now as full Drive viewing requires auth/proxy */}
+                        <div className="bg-gray-100 min-h-[120px] max-h-[240px] flex items-center justify-center text-gray-400 relative overflow-hidden">
+                           <ImageIcon size={48} className="absolute opacity-20" />
                            <img 
                              src={`https://lh3.googleusercontent.com/u/0/d/${msg.fileUrl}=w800-h800`} 
                              alt={msg.fileName}
                              className="w-full h-full object-cover relative z-10"
-                             loading="lazy"
                              onError={(e) => {
                                e.currentTarget.style.display = 'none';
                              }}
                              referrerPolicy="no-referrer"
                            />
-                           <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 group-hover/msg:opacity-100 transition-opacity z-20">
-                             <div className="p-2 bg-white/20 backdrop-blur-md rounded-full text-white">
-                               <Eye size={20} />
-                             </div>
+                           <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover/msg:opacity-100 transition-opacity z-20">
+                             <a 
+                               href={`https://drive.google.com/file/d/${msg.fileUrl}/view`} 
+                               target="_blank" 
+                               rel="noreferrer"
+                               className="px-4 py-2 bg-white text-gray-900 rounded-full text-xs font-bold"
+                             >
+                               צפה בתמונה
+                             </a>
                            </div>
                         </div>
                       </div>
@@ -657,57 +658,6 @@ export const SabanMessenger: React.FC<SabanMessengerProps> = ({ userProfile }) =
           </button>
         </form>
       </div>
-      {/* Image Preview Modal */}
-      <AnimatePresence>
-        {selectedImage && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl" dir="rtl">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              className="relative max-w-5xl w-full h-full flex flex-col items-center justify-center"
-            >
-              <div className="absolute top-4 left-4 right-4 flex justify-between items-center z-10">
-                <div className="bg-white/10 backdrop-blur-md px-4 py-2 rounded-2xl border border-white/10">
-                   <p className="text-white font-black text-sm">{selectedImage.name}</p>
-                </div>
-                <button 
-                  onClick={() => setSelectedImage(null)}
-                  className="p-3 bg-white/10 backdrop-blur-md text-white rounded-2xl hover:bg-white/20 transition-all active:scale-90"
-                >
-                  <EyeOff size={24} />
-                </button>
-              </div>
-
-              <div className="flex-1 w-full flex items-center justify-center overflow-hidden">
-                <img 
-                  src={`https://lh3.googleusercontent.com/u/0/d/${selectedImage.url}=w2000-h2000`} 
-                  alt={selectedImage.name}
-                  className="max-w-full max-h-full object-contain shadow-2xl rounded-lg"
-                  referrerPolicy="no-referrer"
-                />
-              </div>
-
-              <div className="mt-8 flex gap-4">
-                <a 
-                  href={`https://drive.google.com/file/d/${selectedImage.url}/view`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="px-8 py-4 bg-sky-600 text-white rounded-2xl font-black shadow-xl shadow-sky-600/20 flex items-center gap-2 hover:scale-105 active:scale-95 transition-all"
-                >
-                  פתח ב-Google Drive
-                </a>
-                <button 
-                  onClick={() => setSelectedImage(null)}
-                  className="px-8 py-4 bg-white/10 text-white rounded-2xl font-black border border-white/10 hover:bg-white/20 transition-all"
-                >
-                  סגור תצוגה
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
     </div>
   );
 };

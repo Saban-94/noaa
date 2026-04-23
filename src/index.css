@@ -22,11 +22,12 @@
     width: 100%;
     min-height: 100vh;
     overflow-x: hidden;
+    scroll-behavior: smooth;
   }
 
   /* Improved Touch Targets & Mobile Feel */
   button, a, [role="button"] {
-    @apply cursor-pointer transition-all duration-200 active:scale-95 flex items-center justify-center;
+    @apply cursor-pointer transition-all duration-200 active:scale-95;
     min-height: 44px;
     min-width: 44px;
     touch-action: manipulation;
@@ -37,11 +38,21 @@
     @apply tracking-tight font-black;
   }
 
+  /* Safe Area Utilities */
+  .safe-top { pt-[env(safe-area-inset-top)]; }
+  .safe-bottom { pb-[env(safe-area-inset-bottom)]; }
+  .safe-px { px-[env(safe-area-inset-left)] px-[env(safe-area-inset-right)]; }
+
   /* Smooth Scroll Containment */
   .scroll-container {
     @apply overflow-y-auto overflow-x-hidden;
     -webkit-overflow-scrolling: touch;
     scroll-behavior: smooth;
+  }
+
+  /* Support for smooth scrolling on iOS */
+  * {
+    -webkit-overflow-scrolling: touch;
   }
 
   /* Ensure scroll-only-vertical for containers that need it */
@@ -55,40 +66,25 @@
     @apply w-full overflow-x-auto;
     -webkit-overflow-scrolling: touch;
   }
+
+  .shimmer-anim {
+    background: linear-gradient(
+      90deg,
+      rgba(14, 165, 233, 0) 0%,
+      rgba(14, 165, 233, 0.1) 50%,
+      rgba(14, 165, 233, 0) 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer-effect 2s infinite linear;
+  }
+
+  @keyframes shimmer-effect {
+    from { background-position: 200% 0; }
+    to { background-position: -200% 0; }
+  }
 }
 
-/* --- תיקון שגיאת Build: Safe Area Utilities --- */
-/* ב-Tailwind v4, עדיף להשתמש ב-CSS נקי עבור פונקציות env */
-.safe-top {
-  padding-top: env(safe-area-inset-top, 0px);
-}
-
-.safe-bottom {
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-}
-
-.safe-px {
-  padding-left: env(safe-area-inset-left, 0px);
-  padding-right: env(safe-area-inset-right, 0px);
-}
-
-/* אנימציות */
-.shimmer-anim {
-  background: linear-gradient(
-    90deg,
-    rgba(14, 165, 233, 0) 0%,
-    rgba(14, 165, 233, 0.1) 50%,
-    rgba(14, 165, 233, 0) 100%
-  );
-  background-size: 200% 100%;
-  animation: shimmer-effect 2s infinite linear;
-}
-
-@keyframes shimmer-effect {
-  from { background-position: 200% 0; }
-  to { background-position: -200% 0; }
-}
-
+/* Custom RTL scrollbar or other tweaks if needed */
 [dir="rtl"] .font-sans {
   font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
 }
