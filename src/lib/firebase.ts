@@ -1,14 +1,7 @@
 import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
-import { 
-  getAuth, 
-  GoogleAuthProvider, 
-  signInWithPopup, 
-  signOut 
-} from 'firebase/auth';
-import { getStorage } from 'firebase/storage';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
 
-// הגדרות ה-Firebase שלך - מושך ממשתני הסביבה של Vercel
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
@@ -18,17 +11,16 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
 
-// אתחול האפליקציה
+// וידוא שהגדרות קיימות
+if (!firebaseConfig.apiKey) {
+  console.error("❌ Firebase API Key is missing! Check your Vercel Environment Variables.");
+}
+
 const app = initializeApp(firebaseConfig);
 
-// ייצוא שירותים
 export const db = getFirestore(app);
 export const auth = getAuth(app);
-export const storage = getStorage(app);
 
-// --- פונקציות אימות (Authentication) ---
-
-// התחברות עם גוגל
 export const loginWithGoogle = async () => {
   const provider = new GoogleAuthProvider();
   try {
@@ -40,13 +32,11 @@ export const loginWithGoogle = async () => {
   }
 };
 
-// התנתקות מהמערכת - הפונקציה שהייתה חסרה!
 export const logout = async () => {
   try {
     await signOut(auth);
   } catch (error) {
     console.error("Logout Error:", error);
-    throw error;
   }
 };
 
