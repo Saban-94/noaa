@@ -619,29 +619,29 @@ export const OrderCard = ({
               onUpdateStatus(order.id!, nextStatusMap[order.status] || order.status);
             }}
             className={cn(
-              "bg-sky-600 text-white rounded-2xl font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-sky-600/20 active:scale-95 transition-all",
-              isCompact ? "px-3 py-2" : "flex-1 py-3.5"
+              "bg-sky-600 text-white rounded-2xl font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-sky-600/20 active:scale-95 transition-all min-h-[44px]",
+              isCompact ? "px-4 py-2" : "flex-1 py-4"
             )}
           >
-            <CheckCircle2 size={isCompact ? 14 : 16} /> 
+            <CheckCircle2 size={isCompact ? 16 : 18} /> 
             {isCompact ? "קדם" : "עדכן סטטוס"}
           </button>
           
           {isCompact ? (
              <div className="flex items-center gap-1">
-               <button onClick={() => onEdit(order)} className="p-2 text-gray-400 hover:text-sky-600 hover:bg-sky-50 rounded-xl">
-                 <Pencil size={14} />
+               <button onClick={() => onEdit(order)} className="p-3 text-gray-400 hover:text-sky-600 hover:bg-sky-50 rounded-xl min-h-[44px] min-w-[44px] flex items-center justify-center">
+                 <Pencil size={16} />
                </button>
-               <button onClick={handleShare} className="p-2 text-gray-400 hover:text-sky-600 hover:bg-sky-50 rounded-xl">
-                 <Share2 size={14} />
+               <button onClick={handleShare} className="p-3 text-gray-400 hover:text-sky-600 hover:bg-sky-50 rounded-xl min-h-[44px] min-w-[44px] flex items-center justify-center">
+                 <Share2 size={16} />
                </button>
                <button 
                 onClick={() => {
                   if (window.confirm('למחוק אחי?')) onDelete(order.id!);
                 }}
-                className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl"
+                className="p-3 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl min-h-[44px] min-w-[44px] flex items-center justify-center"
                >
-                 <Trash2 size={14} />
+                 <Trash2 size={16} />
                </button>
              </div>
           ) : (
@@ -649,7 +649,7 @@ export const OrderCard = ({
               <button 
                 onClick={handleSmartPredict}
                 disabled={isPredicting}
-                className="bg-gray-900 text-white p-3.5 rounded-2xl hover:bg-sky-700 transition-all flex items-center justify-center gap-2 shadow-lg shadow-gray-900/10 active:scale-95 disabled:opacity-50"
+                className="bg-gray-900 text-white p-3.5 rounded-2xl hover:bg-sky-700 transition-all flex items-center justify-center gap-2 shadow-lg shadow-gray-900/10 active:scale-95 disabled:opacity-50 min-h-[44px]"
               >
                 {isPredicting ? (
                   <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
@@ -662,7 +662,7 @@ export const OrderCard = ({
               <button 
                 onClick={handleShare}
                 title="שתף הזמנה"
-                className="bg-white border-2 border-gray-100 text-gray-600 p-3.5 rounded-2xl hover:bg-sky-50 hover:text-sky-600 hover:border-sky-100 transition-all active:scale-95 shadow-sm"
+                className="bg-white border-2 border-gray-100 text-gray-600 p-3.5 rounded-2xl hover:bg-sky-50 hover:text-sky-600 hover:border-sky-100 transition-all active:scale-95 shadow-sm min-h-[44px] min-w-[44px] flex items-center justify-center"
               >
                 <Share2 size={18} />
               </button>
@@ -670,7 +670,7 @@ export const OrderCard = ({
               <button 
                 onClick={() => onEdit(order)}
                 title="ערוך הזמנה"
-                className="p-3.5 text-gray-400 hover:text-sky-600 hover:bg-sky-50 rounded-2xl transition-all"
+                className="p-3.5 text-gray-400 hover:text-sky-600 hover:bg-sky-50 rounded-2xl transition-all min-h-[44px] min-w-[44px] flex items-center justify-center"
               >
                 <Pencil size={18} />
               </button>
@@ -678,7 +678,7 @@ export const OrderCard = ({
               <button 
                 onClick={() => onRepeat(order)}
                 title="הזמנה חוזרת (שכפול)"
-                className="p-3.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-2xl transition-all"
+                className="p-3.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-2xl transition-all min-h-[44px] min-w-[44px] flex items-center justify-center"
               >
                 <RotateCcw size={18} />
               </button>
@@ -689,7 +689,7 @@ export const OrderCard = ({
                     onDelete(order.id!);
                   }
                 }}
-                className="p-3.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-2xl transition-all"
+                className="p-3.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-2xl transition-all min-h-[44px] min-w-[44px] flex items-center justify-center"
               >
                 <Trash2 size={18} />
               </button>

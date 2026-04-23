@@ -66,7 +66,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
 
   return (
     <DragDropContext onDragEnd={onDragEnd}>
-      <div className="flex gap-6 overflow-x-auto pb-8 min-h-[calc(100vh-350px)]" dir="rtl">
+      <div className="flex gap-6 overflow-x-auto pb-12 min-h-[calc(100vh-350px)] scroll-container snap-x snap-mandatory px-4 md:px-0" dir="rtl">
         {statusConfig.map((col) => {
           const colOrders = orders.filter(o => o.status === col.status);
           const Icon = col.icon;
@@ -74,7 +74,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
           return (
             <div 
               key={col.status} 
-              className="flex-shrink-0 w-80 flex flex-col"
+              className="flex-shrink-0 w-[85vw] md:w-80 flex flex-col snap-center md:snap-align-none"
             >
               {/* Column Header */}
               <div className={`p-4 rounded-2xl border-b-2 mb-4 flex items-center justify-between ${col.bg} ${col.border}`}>

@@ -1203,16 +1203,51 @@ export default function App() {
   const totalOrders = filteredOrders.length;
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col font-sans mb-20 md:mb-0" dir="rtl">
-      <Header 
-        user={user} 
-        notificationsEnabled={notificationsEnabled} 
-        onToggleNotifications={toggleNotifications} 
-        onOpenDrawer={() => setIsDrawerOpen(true)}
-        onInstallApp={installPrompt ? handleInstallClick : null}
-        onFileUpload={handleDriveFileUpload}
-        onOpenReminders={() => setIsRemindersOpen(true)}
-      />
+    <div className="min-h-screen bg-[#FDFDFF] flex flex-col font-sans pb-[calc(100px+env(safe-area-inset-bottom))] md:pb-0 scroll-smooth" dir="rtl">
+      {/* Premium Sticky Header */}
+      <header className="sticky top-0 z-[40] bg-white/90 backdrop-blur-xl border-b border-gray-100/50 pt-[env(safe-area-inset-top)] px-4 md:px-8 shadow-[0_2px_15px_rgba(0,0,0,0.02)]">
+        <div className="max-w-5xl mx-auto h-16 md:h-20 flex items-center justify-between">
+          <div className="flex items-center gap-3 md:gap-4">
+            <button 
+              onClick={() => setIsDrawerOpen(true)}
+              className="p-2.5 hover:bg-gray-50 rounded-2xl transition-all active:scale-90 min-h-[44px] min-w-[44px] flex items-center justify-center"
+            >
+              <Menu size={24} className="text-gray-900" />
+            </button>
+            <div className="flex flex-col">
+               <h1 className="text-xl md:text-2xl font-black text-gray-900 leading-none italic font-sans tracking-tighter">SabanOS</h1>
+               <div className="flex items-center gap-1.5 mt-1">
+                 <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.4)]" />
+                 <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Operational Mode</span>
+               </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 md:gap-4">
+            <button 
+              onClick={() => setIsRemindersOpen(true)}
+              className="relative p-2.5 hover:bg-gray-50 rounded-2xl transition-all active:scale-90 min-h-[44px] min-w-[44px] flex items-center justify-center"
+            >
+              <Bell size={22} className="text-gray-600" />
+              {reminders.filter(r => !r.isCompleted).length > 0 && (
+                <div className="absolute top-2 right-2 w-4 h-4 bg-sky-600 text-white text-[8px] font-black rounded-full flex items-center justify-center ring-2 ring-white">
+                  {reminders.filter(r => !r.isCompleted).length}
+                </div>
+              )}
+            </button>
+
+            <div className="hidden sm:flex items-center gap-3 bg-gray-50 p-1.5 pr-4 rounded-2xl border border-gray-100">
+               <span className="text-xs font-black text-gray-900">{user?.displayName?.split(' ')[0]}</span>
+               <img 
+                 src={user?.photoURL || `https://ui-avatars.com/api/?name=${user?.displayName}&background=random`} 
+                 className="w-8 h-8 rounded-xl object-cover shadow-sm ring-2 ring-white" 
+                 referrerPolicy="no-referrer"
+                 alt="" 
+               />
+            </div>
+          </div>
+        </div>
+      </header>
 
       <Drawer 
         isOpen={isDrawerOpen} 
@@ -1863,43 +1898,31 @@ export default function App() {
 
       {/* Toasts */}
 
-      {/* Mobile Nav Overlay */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-lg border-t border-sky-100 px-8 pt-3 pb-[calc(12px+env(safe-area-inset-bottom))] flex justify-between items-center z-30 shadow-[0_-5px_20px_rgba(0,0,0,0.05)]">
-        <button 
-          onClick={() => setViewMode('list')}
-          className={`flex flex-col items-center gap-1 min-h-[44px] min-w-[44px] justify-center ${viewMode === 'list' ? 'text-sky-600' : 'text-gray-300'}`}
-        >
-          <Truck size={20} />
-          <span className="text-[10px] font-bold">סידור</span>
-        </button>
-        <button 
-          onClick={() => setViewMode('chat')}
-          className={`flex flex-col items-center gap-1 min-h-[44px] min-w-[44px] justify-center ${viewMode === 'chat' ? 'text-sky-600' : 'text-gray-300'}`}
-        >
-          <MessageSquare size={20} />
-          <span className="text-[10px] font-bold">נועה</span>
-        </button>
-        <button 
-          onClick={() => setViewMode('messenger')}
-          className={`flex flex-col items-center gap-1 min-h-[44px] min-w-[44px] justify-center ${viewMode === 'messenger' ? 'text-sky-600' : 'text-gray-300'}`}
-        >
-          <Users size={20} />
-          <span className="text-[10px] font-bold">קבוצת עבודה</span>
-        </button>
-        <button 
-          onClick={() => setViewMode('drivers')}
-          className={`flex flex-col items-center gap-1 min-h-[44px] min-w-[44px] justify-center ${viewMode === 'drivers' ? 'text-sky-600' : 'text-gray-300'}`}
-        >
-          <Users size={20} />
-          <span className="text-[10px] font-bold">נהגים</span>
-        </button>
-        <button 
-          onClick={() => setViewMode('reports')}
-          className={`flex flex-col items-center gap-1 min-h-[44px] min-w-[44px] justify-center ${viewMode === 'reports' ? 'text-sky-600' : 'text-gray-300'}`}
-        >
-          <FileText size={20} />
-          <span className="text-[10px] font-bold">דוחות</span>
-        </button>
+      {/* Senior Mobile Bottom Navigation */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-2xl border-t border-gray-100 px-6 pt-3 pb-[calc(16px+env(safe-area-inset-bottom))] flex justify-around items-center z-[50] shadow-[0_-10px_40px_rgba(0,0,0,0.04)]">
+        {[
+          { icon: LayoutGrid, label: 'קנבן', view: 'kanban' },
+          { icon: MessageSquare, label: 'נועה', view: 'chat' },
+          { icon: List, label: 'רשימה', view: 'list' },
+          { icon: Users, label: 'קבוצה', view: 'messenger' },
+          { icon: Truck, label: 'נהגים', view: 'drivers' }
+        ].map((item) => (
+          <button
+            key={item.view}
+            onClick={() => setViewMode(item.view as any)}
+            className={`flex flex-col items-center gap-1.5 p-2 rounded-2xl transition-all min-h-[48px] min-w-[48px] ${
+              viewMode === item.view ? 'text-sky-600 bg-sky-50 shadow-inner' : 'text-gray-400'
+            }`}
+          >
+            <div className="relative flex flex-col items-center">
+              <item.icon size={22} strokeWidth={viewMode === item.view ? 3 : 2} />
+              {item.view === 'messenger' && messages.filter(m => m.senderId !== auth.currentUser?.uid && (!m.readBy || !m.readBy.includes(auth.currentUser?.uid || ''))).length > 0 && (
+                <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-sky-600 rounded-full animate-pulse border-2 border-white" />
+              )}
+              <span className="text-[9px] font-black uppercase tracking-tighter mt-1">{item.label}</span>
+            </div>
+          </button>
+        ))}
       </div>
 
       {/* Toasts */}
