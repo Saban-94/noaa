@@ -420,8 +420,13 @@ export const OrderCard = ({
       layout
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
+      whileHover={{ 
+        scale: 1.018, 
+        y: -4,
+        transition: { type: 'spring', stiffness: 400, damping: 22 }
+      }}
       className={cn(
-        "bg-white/95 backdrop-blur-sm rounded-[2rem] border border-sky-100 shadow-lg hover:shadow-xl transition-all relative group",
+        "order-card bg-white/95 dark:bg-gray-900/90 backdrop-blur-sm rounded-[2rem] border border-sky-100 dark:border-gray-800 shadow-md hover:shadow-[0_20px_50px_rgba(14,165,233,0.18)] dark:hover:shadow-[0_20px_50px_rgba(14,165,233,0.1)] hover:border-sky-300 dark:hover:border-sky-500/50 transition-all duration-300 relative group cursor-pointer",
         isCompact ? "p-4" : "p-5"
       )}
     >
