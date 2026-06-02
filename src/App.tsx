@@ -93,6 +93,8 @@ import {
 import { Order, Driver, Customer, Reminder, UserProfile, ChatMessage } from './types';
 import { useUserMemory } from './hooks/useUserMemory';
 import { uploadFileToDrive } from './services/driveService';
+import { useMobile } from './hooks/useMobile';
+import { MobileNavigation } from './components/MobileNavigation';
 
 // --- Components ---
 
@@ -463,6 +465,14 @@ const RemindersSidebar = ({
 // --- Main App ---
 
 export default function App() {
+  const isMobile = useMobile();
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return document.documentElement.classList.contains('dark') || localStorage.getItem('theme') === 'dark';
+    }
+    return false;
+  });
+
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -538,6 +548,44 @@ export default function App() {
       branch: 'both'
     }
   });
+
+  // --- Dark Mode Sync ---
+  useEffect(() => {
+    const profileTheme = userProfile?.preferences?.theme;
+    if (profileTheme === 'dark') {
+      setIsDarkMode(true);
+      document.documentElement.classList.add('dark');
+    } else if (profileTheme === 'light') {
+      setIsDarkMode(false);
+      document.documentElement.classList.remove('dark');
+    }
+  }, [userProfile?.preferences?.theme]);
+
+  const toggleDarkMode = () => {
+    const nextDark = !isDarkMode;
+    setIsDarkMode(nextDark);
+    if (nextDark) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+      setUserProfile({
+        ...userProfile,
+        preferences: {
+          ...userProfile.preferences,
+          theme: 'dark'
+        }
+      });
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+      setUserProfile({
+        ...userProfile,
+        preferences: {
+          ...userProfile.preferences,
+          theme: 'light'
+        }
+      });
+    }
+  };
 
   // Backward compatibility aliases for existing code
   const viewMode = settings.viewMode;
@@ -1911,6 +1959,20 @@ export default function App() {
         </div>
       </div>
       </main>
+
+      {/* Senior Mobile Navigation Floating Command Drawer Overlay */}
+      {isMobile && user && (
+        <MobileNavigation
+          currentView={viewMode}
+          onViewChange={setViewMode}
+          user={user}
+          unreadMessagesCount={messages.filter(m => m.senderId !== auth.currentUser?.uid && (!m.readBy || !m.readBy.includes(auth.currentUser?.uid || ''))).length}
+          isDarkMode={isDarkMode}
+          onToggleDarkMode={toggleDarkMode}
+          onLogout={logout}
+        />
+      )}
+
 
       {/* Toasts */}
 
