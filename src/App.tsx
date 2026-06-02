@@ -44,7 +44,8 @@ import {
   Paperclip,
   Loader2,
   ListTodo,
-  FileSpreadsheet
+  FileSpreadsheet,
+  LayoutGrid
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
@@ -89,7 +90,7 @@ import {
   updateReminder,
   deleteReminder
 } from './services/auraService';
-import { Order, Driver, Customer, Reminder, UserProfile } from './types';
+import { Order, Driver, Customer, Reminder, UserProfile, ChatMessage } from './types';
 import { useUserMemory } from './hooks/useUserMemory';
 import { uploadFileToDrive } from './services/driveService';
 
@@ -471,6 +472,7 @@ export default function App() {
   const [isRemindersOpen, setIsRemindersOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [chatHistory, setChatHistory] = useState<any[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isAddingOrder, setIsAddingOrder] = useState(false);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [isUploadingDoc, setIsUploadingDoc] = useState(false);
@@ -909,6 +911,20 @@ export default function App() {
 
     return () => unsubscribe();
   }, [user]);
+
+  // --- Fetch Messages for Bottom Navigation Unread Badge ---
+  useEffect(() => {
+    if (!user) return;
+    
+    const q = query(collection(db, 'messages'), orderBy('timestamp', 'asc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const msgs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as ChatMessage[];
+      const isAdmin = userProfile?.role === 'admin' || user.email === 'hsaban2025@gmail.com' || user.email === 'itzik@saban.co.il';
+      setMessages(msgs.filter(m => m.visibility === 'everyone' || isAdmin));
+    });
+
+    return () => unsubscribe();
+  }, [user, userProfile?.role]);
 
   useEffect(() => {
     if (chatScrollRef.current) {
@@ -1903,7 +1919,7 @@ export default function App() {
         {[
           { icon: LayoutGrid, label: 'קנבן', view: 'kanban' },
           { icon: MessageSquare, label: 'נועה', view: 'chat' },
-          { icon: List, label: 'רשימה', view: 'list' },
+          { icon: LayoutList, label: 'רשימה', view: 'list' },
           { icon: Users, label: 'קבוצה', view: 'messenger' },
           { icon: Truck, label: 'נהגים', view: 'drivers' }
         ].map((item) => (

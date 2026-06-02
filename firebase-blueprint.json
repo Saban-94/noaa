@@ -2,134 +2,216 @@
   "entities": {
     "Order": {
       "title": "Order",
-      "description": "Logistics delivery order for building materials",
+      "description": "A logistics delivery order for H. Saban",
       "type": "object",
       "properties": {
-        "orderNumber": { "type": "string" },
-        "date": { "type": "string", "format": "date", "description": "YYYY-MM-DD" },
-        "time": { "type": "string", "description": "HH:mm" },
-        "driverId": { "type": "string" },
+        "date": { "type": "string", "description": "Delivery date (YYYY-MM-DD)" },
+        "time": { "type": "string", "description": "Delivery time (HH:mm)" },
+        "driverId": { "type": "string", "description": "ID or name of the driver assigned" },
         "customerName": { "type": "string" },
+        "orderNumber": { "type": "string", "description": "Order/Lead ID (מס' נתור)" },
         "destination": { "type": "string" },
-        "items": { "type": "string" },
+        "items": { "type": "string", "description": "Comma separated items and quantities" },
         "warehouse": { "type": "string", "enum": ["החרש", "התלמיד"] },
+        "documentIds": { "type": "array", "items": { "type": "string" }, "description": "Associated document IDs (confirmations, invoices)" },
         "status": { "type": "string", "enum": ["pending", "preparing", "ready", "delivered", "cancelled"] },
-        "orderFormId": { "type": "string" },
-        "deliveryNoteId": { "type": "string" },
-        "eta": { "type": "string" },
+        "eta": { "type": "string", "description": "Estimated Time of Arrival (HH:mm)" },
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" },
-        "createdBy": { "type": "string" },
-        "source": { "type": "string", "enum": ["manual", "import", "chat"] },
-        "notes": { "type": "string" }
+        "createdBy": { "type": "string" }
       },
-      "required": ["date", "time", "customerName", "destination", "items", "status"]
+      "required": ["date", "time", "driverId", "customerName", "destination", "items", "status"]
+    },
+    "MorningReport": {
+      "title": "Morning Report",
+      "description": "Daily logistics summary report sent to drivers/management",
+      "type": "object",
+      "properties": {
+        "date": { "type": "string" },
+        "orderIds": { "type": "array", "items": { "type": "string" } },
+        "reportText": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["date", "orderIds", "reportText", "createdAt"]
+    },
+    "InventoryRule": {
+      "title": "Inventory Rule",
+      "description": "Rules for specific items (e.g. minimum quantity)",
+      "type": "object",
+      "properties": {
+        "itemName": { "type": "string" },
+        "minQuantity": { "type": "number" },
+        "depositRequired": { "type": "boolean" },
+        "depositThreshold": { "type": "number" },
+        "description": { "type": "string" }
+      },
+      "required": ["itemName"]
     },
     "Driver": {
       "title": "Driver",
-      "description": "Delivery driver profile",
+      "description": "A logistics driver profile for H. Saban",
       "type": "object",
       "properties": {
         "name": { "type": "string" },
         "phone": { "type": "string" },
-        "avatar": { "type": "string" },
         "vehicleType": { "type": "string", "enum": ["truck", "crane"] },
         "plateNumber": { "type": "string" },
         "vehicleModel": { "type": "string" },
         "status": { "type": "string", "enum": ["active", "off_duty"] },
-        "totalDeliveries": { "type": "integer" },
+        "totalDeliveries": { "type": "number" },
         "onTimeRate": { "type": "number" },
         "rating": { "type": "number" },
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["name", "phone", "vehicleType", "status"]
+      "required": ["name", "phone", "vehicleType"]
     },
     "Customer": {
       "title": "Customer",
-      "description": "Customer contact and folder info",
+      "description": "A customer profile in SabanOS",
       "type": "object",
       "properties": {
-        "customerNumber": { "type": "string" },
         "name": { "type": "string" },
+        "customerNumber": { "type": "string" },
         "contactPerson": { "type": "string" },
         "phoneNumber": { "type": "string" },
         "driveFolderId": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["customerNumber", "name", "phoneNumber"]
+      "required": ["name", "customerNumber"]
     },
     "Reminder": {
       "title": "Reminder",
-      "description": "User reminders and tasks",
+      "description": "A reminder or task in the system",
       "type": "object",
       "properties": {
         "title": { "type": "string" },
         "description": { "type": "string" },
-        "dueDate": { "type": "string", "format": "date" },
-        "dueTime": { "type": "string" },
+        "dueDate": { "type": "string", "description": "YYYY-MM-DD" },
+        "dueTime": { "type": "string", "description": "HH:mm" },
         "isCompleted": { "type": "boolean" },
         "orderId": { "type": "string" },
-        "userId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "dueDate", "dueTime"]
+    },
+    "InventoryItem": {
+      "title": "Inventory Item",
+      "description": "A product or material in the company warehouse",
+      "type": "object",
+      "properties": {
+        "sku": { "type": "string", "description": "SKU or Catalog number" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "imageUrl": { "type": "string", "description": "URL to product image" },
+        "unit": { "type": "string", "description": "Unit of measurement (e.g. pcs, meters)" },
+        "currentStock": { "type": "number" },
+        "minStock": { "type": "number" },
+        "price": { "type": "number" },
+        "category": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["title", "dueDate", "dueTime", "isCompleted", "userId"]
+      "required": ["sku", "name", "unit", "currentStock"]
     },
-    "ChatMessage": {
-      "title": "ChatMessage",
-      "description": "Message in SabanMessenger",
+    "SaleRecord": {
+      "title": "Sale Record",
+      "description": "A record of an item leaving inventory (sale or workshop use)",
       "type": "object",
       "properties": {
-        "text": { "type": "string" },
+        "itemId": { "type": "string", "description": "ID of the inventory item" },
+        "orderId": { "type": "string", "description": "Associated order ID if any" },
+        "customerName": { "type": "string" },
+        "quantity": { "type": "number" },
+        "date": { "type": "string", "description": "YYYY-MM-DD" },
+        "priceAtSale": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["itemId", "customerName", "quantity", "date"]
+    },
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "VIP User profile for Magic Pages",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string" },
+        "avatarUrl": { "type": "string" },
+        "lastSeen": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name"]
+    },
+    "TeamChatMessage": {
+      "title": "Team Chat Message",
+      "description": "Internal message shared between team members",
+      "type": "object",
+      "properties": {
         "senderId": { "type": "string" },
         "senderName": { "type": "string" },
-        "timestamp": { "type": "string", "format": "date-time" },
-        "visibility": { "type": "string", "enum": ["everyone", "managers"] },
-        "type": { "type": "string", "enum": ["text", "image", "file", "video", "system"] },
-        "readBy": { "type": "array", "items": { "type": "string" }, "description": "UIDs of users who read this message" }
+        "text": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
       },
-      "required": ["text", "senderId", "senderName", "timestamp", "visibility", "type"]
-    },
-    "InterBranchTransfer": {
-      "title": "InterBranchTransfer",
-      "description": "Movement of materials between branches",
-      "type": "object",
-      "properties": {
-        "sourceBranch": { "type": "string", "enum": ["החרש", "התלמיד"] },
-        "destinationBranch": { "type": "string", "enum": ["החרש", "התלמיד"] },
-        "items": { "type": "string" },
-        "status": { "type": "string", "enum": ["pending", "approved", "on_way", "delivered", "cancelled"] },
-        "requestedBy": { "type": "string" }
-      },
-      "required": ["sourceBranch", "destinationBranch", "items", "status", "requestedBy"]
+      "required": ["senderId", "senderName", "text", "timestamp"]
     }
   },
   "firestore": {
-    "orders": {
+    "/chat_history/{messageId}": {
+      "schema": "TeamChatMessage",
+      "description": "Log of messages exchanged with customers for Noa Bridge to reference"
+    },
+    "/bridge_sessions/{sessionId}": {
+      "schema": "Order",
+      "description": "History of Noa Bridge analysis sessions"
+    },
+    "/user_magic_pages/{userId}": {
+      "schema": "UserProfile",
+      "description": "VIP User Magic Pages collection"
+    },
+    "/office_messages/{messageId}": {
+      "schema": "TeamChatMessage",
+      "description": "Internal team communication chat (OneSignal synced)"
+    },
+    "/orders/{orderId}": {
       "schema": "Order",
       "description": "Collection of logistics orders"
     },
-    "drivers": {
+    "/morning_reports/{reportId}": {
+      "schema": "MorningReport",
+      "description": "Daily logistics summary reports"
+    },
+    "/inventoryRules/{ruleId}": {
+      "schema": "InventoryRule",
+      "description": "Item-specific business logic rules"
+    },
+    "/inventory/{itemId}": {
+      "schema": "InventoryItem",
+      "description": "Master inventory collection"
+    },
+    "/sales/{saleId}": {
+      "schema": "SaleRecord",
+      "description": "History of inventory transactions"
+    },
+    "/drivers/{driverId}": {
       "schema": "Driver",
       "description": "Collection of driver profiles"
     },
-    "customers": {
+    "/customers/{customerId}": {
       "schema": "Customer",
-      "description": "Collection of customer records"
+      "description": "Customer profiles and drive folder links"
     },
-    "reminders": {
+    "/reminders/{reminderId}": {
       "schema": "Reminder",
-      "description": "Collection of user-specific reminders"
+      "description": "System reminders and tasks"
     },
-    "messages": {
-      "schema": "ChatMessage",
-      "description": "Collection of chat messages"
-    },
-    "transfers": {
-      "schema": "InterBranchTransfer",
-      "description": "Collection of inter-branch transfers"
+    "/users/{userId}/messages/{messageId}": {
+      "schema": "object",
+      "description": "Private chat history for a user"
     }
   }
 }
