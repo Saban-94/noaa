@@ -30,9 +30,8 @@ import { db, auth } from '../lib/firebase';
 import { ChatMessage, InterBranchTransfer, Order, UserProfile } from '../types';
 import { format } from 'date-fns';
 import { he } from 'date-fns/locale';
-import { processChatMessage, createTransfer, createOrder, predictOrderEta, createReminder } from '../services/auraService';
+import { processChatMessage, createTransfer, createOrder, predictOrderEta, createReminder, analyzePdfContent } from '../services/auraService';
 import { uploadFileToDrive } from '../services/driveService';
-import { analyzePdfContent } from '../services/auraService'; // Need to export this
 
 interface ActionSuggestion {
   intent: 'transfer' | 'order' | 'chat' | 'none' | 'debug';
