@@ -76,7 +76,6 @@ import { SearchSuggestions } from './components/SearchSuggestions';
 import { NoaChat } from './components/NoaChat';
 import { initOneSignal, sendOrderNotification, requestNotificationPermission } from './services/notificationService';
 import { DeliveryImport } from './components/DeliveryImport';
-import { SabanMessenger } from './components/SabanMessenger';
 import { UserProfileView } from './components/UserProfile';
 import { 
   createOrder, 
@@ -251,7 +250,6 @@ const Drawer = ({
           <div className="flex-1 space-y-2">
             {[
               { id: 'chat', label: 'דברו עם נועה (AI)', icon: MessageSquare },
-              { id: 'messenger', label: 'קבוצת עבודה (SabanMessenger)', icon: Users },
               { id: 'list', label: 'לוח הזמנות', icon: LayoutList },
               { id: 'kanban', label: 'לוח קנבן', icon: Trello },
               { id: 'calendar', label: 'סידור עבודה שבועי', icon: CalendarDays },
@@ -514,7 +512,7 @@ export default function App() {
 
   // --- User Memory Persistence ---
   const [settings, setSettings] = useUserMemory(user?.uid, 'ui_settings', {
-    viewMode: 'kanban' as 'list' | 'calendar' | 'reports' | 'chat' | 'drivers' | 'kanban' | 'import' | 'messenger',
+    viewMode: 'kanban' as 'list' | 'calendar' | 'reports' | 'chat' | 'drivers' | 'kanban' | 'import',
     statusFilter: 'all',
     driverFilter: 'all',
     warehouseFilter: 'all',
@@ -1185,26 +1183,6 @@ export default function App() {
       </div>
     </div>
   );
-
-  if (viewMode === 'messenger') {
-    return (
-      <div className="h-screen bg-gray-50 flex flex-col font-sans overflow-hidden" dir="rtl">
-        <Header 
-          user={user} 
-          onOpenDrawer={() => setIsDrawerOpen(true)}
-          notificationsEnabled={notificationsEnabled}
-          onToggleNotifications={toggleNotifications}
-          onInstallApp={installPrompt ? handleInstallClick : null}
-          onFileUpload={handleDriveFileUpload}
-          isUploading={isUploadingDoc}
-          onOpenReminders={() => setIsRemindersOpen(true)}
-        />
-        <main className="flex-1 overflow-hidden relative">
-          <SabanMessenger userProfile={userProfile} />
-        </main>
-      </div>
-    );
-  }
 
   if (viewMode === 'reports') {
     return <MorningReportSystem onBack={() => setViewMode('list')} drivers={drivers} />;
@@ -1982,7 +1960,6 @@ export default function App() {
           { icon: LayoutGrid, label: 'קנבן', view: 'kanban' },
           { icon: MessageSquare, label: 'נועה', view: 'chat' },
           { icon: LayoutList, label: 'רשימה', view: 'list' },
-          { icon: Users, label: 'קבוצה', view: 'messenger' },
           { icon: Truck, label: 'נהגים', view: 'drivers' }
         ].map((item) => (
           <button
@@ -1994,9 +1971,6 @@ export default function App() {
           >
             <div className="relative flex flex-col items-center">
               <item.icon size={22} strokeWidth={viewMode === item.view ? 3 : 2} />
-              {item.view === 'messenger' && messages.filter(m => m.senderId !== auth.currentUser?.uid && (!m.readBy || !m.readBy.includes(auth.currentUser?.uid || ''))).length > 0 && (
-                <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-sky-600 rounded-full animate-pulse border-2 border-white" />
-              )}
               <span className="text-[9px] font-black uppercase tracking-tighter mt-1">{item.label}</span>
             </div>
           </button>

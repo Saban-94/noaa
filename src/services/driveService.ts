@@ -42,6 +42,57 @@ export async function listDriveFiles(folderId: string = FOLDER_ID || ''): Promis
  * Note: For PDFs, we need to download the file data.
  */
 export async function getFileBase64(fileId: string): Promise<string> {
+  // First, try utilizing the Google Apps Script (GAS) bridge to download/extract file base64 data.
+  // The GAS script executed under the owner's context has full OAuth access to the files on Google Drive,
+  // bypassing any client-side CORS issues, API Key limitations, or file-sharing/access restriction errors.
+  try {
+    const response = await fetch(GAS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({
+        action: 'getFile',
+        fileId: fileId
+      })
+    });
+    if (response.ok) {
+      const resText = await response.text();
+      try {
+        const result = JSON.parse(resText);
+        const base64 = result?.base64 || result?.data || result?.base64Data || result?.content;
+        if (base64 && base64.length > 50) {
+          console.log("Successfully fetched file base64 using GAS 'getFile' action.");
+          return base64;
+        }
+      } catch (e) {}
+    }
+  } catch (err) {
+    console.warn("GAS getFile attempt failed, trying alternative action:", err);
+  }
+
+  try {
+    const response = await fetch(GAS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({
+        action: 'getFileBase64',
+        fileId: fileId
+      })
+    });
+    if (response.ok) {
+      const resText = await response.text();
+      try {
+        const result = JSON.parse(resText);
+        const base64 = result?.base64 || result?.data || result?.base64Data || result?.content;
+        if (base64 && base64.length > 50) {
+          console.log("Successfully fetched file base64 using GAS 'getFileBase64' action.");
+          return base64;
+        }
+      } catch (e) {}
+    }
+  } catch (err) {
+    console.warn("GAS getFileBase64 attempt failed:", err);
+  }
+
   if (!API_KEY) {
     throw new Error("Missing Drive API Key אחי. תגדיר אותו ב-Settings כדי שנועה תוכל לסרוק קבצים.");
   }

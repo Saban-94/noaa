@@ -42,7 +42,6 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
     { id: 'list', label: 'סידור עבודה', icon: LayoutList, desc: 'רשימת משימות ומשלוחים יומיים' },
     { id: 'kanban', label: 'קנבן לוגיסטי', icon: LayoutGrid, desc: 'מעקב סטטוסים ויזואלי מהיר' },
     { id: 'chat', label: 'נועה AI', icon: MessageSquare, desc: 'מוקד סיוע חכם וניתוח מסמכים' },
-    { id: 'messenger', label: 'קבוצה מבצעית', icon: Users, desc: 'צ\'אט קבוצתי ועדכוני שטח', showBadge: unreadMessagesCount > 0 },
     { id: 'drivers', label: 'מצב נהגים', icon: Truck, desc: 'בקרת מיקומים וכרטיסי נהג' },
     { id: 'reports', label: 'פקודת בוקר', icon: FileText, desc: 'סיכום יומי ודוחות לוגיסטיקה' },
     { id: 'import', label: 'ייבוא קובץ', icon: FileDown, desc: 'טעינת הזמנות מאקסל או PDF' },
@@ -184,9 +183,6 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
                           <span className={`text-sm font-black tracking-tight ${isActive ? 'text-white' : 'text-gray-900 dark:text-gray-100'}`}>
                             {item.label}
                           </span>
-                          {item.showBadge && (
-                            <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse border border-white dark:border-gray-900" />
-                          )}
                         </div>
                         <p className={`text-[10px] font-semibold truncate ${isActive ? 'text-white/80' : 'text-gray-400 dark:text-gray-500'}`}>
                           {item.desc}
