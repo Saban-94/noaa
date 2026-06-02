@@ -426,7 +426,7 @@ export const OrderCard = ({
         transition: { type: 'spring', stiffness: 400, damping: 22 }
       }}
       className={cn(
-        "order-card bg-white/95 dark:bg-gray-900/90 backdrop-blur-sm rounded-[2rem] border border-sky-100 dark:border-gray-800 shadow-md hover:shadow-[0_20px_50px_rgba(14,165,233,0.18)] dark:hover:shadow-[0_20px_50px_rgba(14,165,233,0.1)] hover:border-sky-300 dark:hover:border-sky-500/50 transition-all duration-300 relative group cursor-pointer",
+        "order-card bg-white/95 dark:bg-gray-900/90 backdrop-blur-sm rounded-[2rem] border border-sky-100 dark:border-gray-800 shadow-md hover:shadow-[0_22px_45px_rgba(14,165,233,0.22)] dark:hover:shadow-[0_22px_45px_rgba(56,189,248,0.12)] hover:border-sky-300 dark:hover:border-sky-500/50 transition-all duration-300 relative group cursor-pointer",
         isCompact ? "p-4" : "p-5"
       )}
     >

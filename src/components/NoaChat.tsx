@@ -10,6 +10,7 @@ import {
   Settings,
   Waves
 } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 import { Order } from '../types';
 import { parseItems } from '../lib/utils';
 
@@ -214,12 +215,34 @@ export const NoaChat = ({
               animate={{ opacity: 1, scale: 1, y: 0 }}
               className={`flex w-full ${chat.role === 'user' ? 'justify-start' : 'justify-end'}`}
             >
-              <div className={`max-w-[90%] md:max-w-md p-5 rounded-[2.5rem] text-sm md:text-base font-bold leading-relaxed shadow-xl backdrop-blur-md relative group/msg ${
+              <div className={`p-5 rounded-[2.5rem] text-sm md:text-base font-bold leading-relaxed shadow-xl backdrop-blur-md relative group/msg ${
                 chat.role === 'user' 
-                  ? 'bg-sky-600 text-white rounded-tr-none shadow-sky-600/10' 
-                  : 'bg-white/95 text-gray-800 rounded-tl-none border-2 border-sky-50'
+                  ? 'max-w-[85%] md:max-w-md bg-sky-600 text-white rounded-tr-none shadow-sky-600/10' 
+                  : 'max-w-[95%] md:max-w-2xl bg-white/95 text-gray-800 rounded-tl-none border-2 border-sky-50'
               }`}>
-                {chat.parts[0].text}
+                {chat.role === 'user' ? (
+                  chat.parts[0].text
+                ) : (
+                  <div className="markdown-body text-gray-800 leading-relaxed text-sm md:text-base font-medium space-y-2 select-text text-right" dir="rtl">
+                    <ReactMarkdown
+                      components={{
+                        p: ({ children }) => <p className="mb-2 last:mb-0 leading-relaxed font-bold text-gray-800">{children}</p>,
+                        h1: ({ children }) => <h1 className="text-lg md:text-xl font-black mt-4 mb-2 text-sky-950 flex items-center gap-1.5 border-b pb-1 border-sky-100">{children}</h1>,
+                        h2: ({ children }) => <h2 className="text-md md:text-lg font-black mt-4 mb-2 text-sky-900 border-r-4 border-sky-500 pr-2">{children}</h2>,
+                        h3: ({ children }) => <h3 className="text-sm md:text-base font-black mt-3 mb-1.5 text-sky-800 border-r-4 border-sky-400/80 pr-2">{children}</h3>,
+                        ul: ({ children }) => <ul className="list-disc pr-6 my-2 text-xs md:text-sm font-semibold space-y-1.5 text-gray-700">{children}</ul>,
+                        ol: ({ children }) => <ol className="list-decimal pr-6 my-2 text-xs md:text-sm font-semibold space-y-1.5 text-gray-700">{children}</ol>,
+                        li: ({ children }) => <li className="leading-relaxed mb-0.5">{children}</li>,
+                        strong: ({ children }) => <strong className="font-extrabold text-sky-950">{children}</strong>,
+                        hr: () => <hr className="my-4 border-t-2 border-sky-100/60" />,
+                        em: ({ children }) => <em className="italic text-gray-500 font-medium">{children}</em>,
+                        code: ({ children }) => <code className="bg-sky-50 text-sky-700 px-1.5 py-0.5 rounded font-mono text-xs">{children}</code>
+                      }}
+                    >
+                      {chat.parts[0].text.replace(/\r?\n/g, '  \n')}
+                    </ReactMarkdown>
+                  </div>
+                )}
                 
                 {chat.role !== 'user' && (
                   <div className="flex items-center gap-2 mt-3 pt-2 border-t border-sky-50/50">
