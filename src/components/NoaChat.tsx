@@ -42,7 +42,7 @@ export const NoaChat = ({
     // 1. Detect if it's an item list
     const items = parseItems(text);
     if (items.length > 0) {
-      let speech = "הנה הפריטים שמצאתי אחי: ";
+      let speech = "הנה הפריטים שמצאתי בסריקה: ";
       items.forEach((item, index) => {
         speech += `פריט ${index + 1}: ${item.name}, כמות: ${item.quantity}. `;
       });
@@ -102,10 +102,10 @@ export const NoaChat = ({
   }, [chatHistory.length]);
 
   const dynamicSuggestions = [
-    { label: 'סנכרון דרייב 📂', action: 'סרוק את תיקיית SabanOS ותחלץ נתונים מהקובץ האחרון' },
-    { label: 'הזמנה חדשה ✍️', action: 'הזמנה חדשה אחי' },
-    { label: 'סטטוס הפצה 📊', action: 'מה סטטוס ההפצה כרגע?' },
     { label: 'דוח בוקר 📋', action: 'תכיני לי דוח בוקר 📋' },
+    { label: 'סנכרון דרייב 📂', action: 'סרוק את תיקיית SabanOS ותחלץ נתונים מהקובץ האחרון' },
+    { label: 'הזמנה חדשה ✍️', action: 'פתח הזמנה חדשה במערכת' },
+    { label: 'סטטוס הפצה 📊', action: 'מה סטטוס ההפצה כרגע?' },
     { label: 'סטטוס נהגים 🚛', action: 'סטטוס נהגים 🚛' },
     { label: 'חריגות בטון/ריצופית ⚠️', action: 'חריגות בטון/ריצופית ⚠️' },
     { label: 'סיכום עמוסים 📈', action: 'סיכום עמוסים' },
@@ -151,7 +151,7 @@ export const NoaChat = ({
                     />
                   </button>
                 </div>
-                <p className="text-[9px] text-gray-400 leading-tight">במצב פעיל, נועה תקריא כל תשובה חדשה באופן אוטומטי אחי.</p>
+                <p className="text-[9px] text-gray-400 leading-tight">במצב פעיל, נועה תקריא כל תשובה חדשה באופן אוטומטי.</p>
               </div>
             </div>
           </div>
@@ -190,8 +190,8 @@ export const NoaChat = ({
               <div className="bg-sky-50 w-24 h-24 rounded-[3rem] flex items-center justify-center mx-auto mb-6 shadow-inner">
                  <MessageSquare className="text-sky-600" size={48} />
               </div>
-              <h2 className="text-2xl font-black mb-2 italic">אהלן ראמי, אחי</h2>
-              <p className="text-sm font-bold text-gray-400 mb-8 max-w-[250px] mx-auto">"תפתחי הזמנה חדשה לחכמת לשעה 9 ליעד ברקאי"</p>
+              <h2 className="text-2xl font-black mb-2 italic">בוקר טוב ראמי, כאן נועה</h2>
+              <p className="text-sm font-bold text-gray-400 mb-8 max-w-[280px] mx-auto">"תכיני לי דוח בוקר לסידור העבודה"</p>
               
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-md mx-auto">
                  {dynamicSuggestions.slice(0, 6).map(suggestion => (
@@ -208,68 +208,88 @@ export const NoaChat = ({
             </div>
           )}
           
-          {chatHistory.map((chat, idx) => (
-            <motion.div 
-              key={idx} 
-              initial={{ opacity: 0, scale: 0.95, y: 10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              className={`flex w-full ${chat.role === 'user' ? 'justify-start' : 'justify-end'}`}
-            >
-              <div className={`p-5 rounded-[2.5rem] text-sm md:text-base font-bold leading-relaxed shadow-xl backdrop-blur-md relative group/msg ${
-                chat.role === 'user' 
-                  ? 'max-w-[85%] md:max-w-md bg-sky-600 text-white rounded-tr-none shadow-sky-600/10' 
-                  : 'max-w-[95%] md:max-w-2xl bg-white/95 text-gray-800 rounded-tl-none border-2 border-sky-50'
-              }`}>
-                {chat.role === 'user' ? (
-                  chat.parts[0].text
-                ) : (
-                  <div className="markdown-body text-gray-800 leading-relaxed text-sm md:text-base font-medium space-y-2 select-text text-right" dir="rtl">
-                    <ReactMarkdown
-                      components={{
-                        p: ({ children }) => <p className="mb-2 last:mb-0 leading-relaxed font-bold text-gray-800">{children}</p>,
-                        h1: ({ children }) => <h1 className="text-lg md:text-xl font-black mt-4 mb-2 text-sky-950 flex items-center gap-1.5 border-b pb-1 border-sky-100">{children}</h1>,
-                        h2: ({ children }) => <h2 className="text-md md:text-lg font-black mt-4 mb-2 text-sky-900 border-r-4 border-sky-500 pr-2">{children}</h2>,
-                        h3: ({ children }) => <h3 className="text-sm md:text-base font-black mt-3 mb-1.5 text-sky-800 border-r-4 border-sky-400/80 pr-2">{children}</h3>,
-                        ul: ({ children }) => <ul className="list-disc pr-6 my-2 text-xs md:text-sm font-semibold space-y-1.5 text-gray-700">{children}</ul>,
-                        ol: ({ children }) => <ol className="list-decimal pr-6 my-2 text-xs md:text-sm font-semibold space-y-1.5 text-gray-700">{children}</ol>,
-                        li: ({ children }) => <li className="leading-relaxed mb-0.5">{children}</li>,
-                        strong: ({ children }) => <strong className="font-extrabold text-sky-950">{children}</strong>,
-                        hr: () => <hr className="my-4 border-t-2 border-sky-100/60" />,
-                        em: ({ children }) => <em className="italic text-gray-500 font-medium">{children}</em>,
-                        code: ({ children }) => <code className="bg-sky-50 text-sky-700 px-1.5 py-0.5 rounded font-mono text-xs">{children}</code>
-                      }}
-                    >
-                      {chat.parts[0].text.replace(/\r?\n/g, '  \n')}
-                    </ReactMarkdown>
+          {chatHistory.map((chat, idx) => {
+            const timeStr = new Date().toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+            const isUser = chat.role === 'user';
+            
+            return (
+              <motion.div 
+                key={idx} 
+                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                className={`flex w-full ${isUser ? 'justify-start' : 'justify-end'}`}
+              >
+                <div className={`p-4 md:p-5 rounded-[1.5rem] text-sm md:text-base font-bold leading-relaxed shadow-sm relative group/msg ${
+                  isUser 
+                    ? 'max-w-[85%] md:max-w-md bg-[#DCF8C6] text-gray-900 rounded-tr-none border border-[#C5EBAB]' 
+                    : 'max-w-[95%] md:max-w-2xl bg-white text-gray-800 rounded-tl-none border border-gray-100'
+                }`}>
+                  {/* WhatsApp contact header for Noa's messages */}
+                  {!isUser && (
+                    <div className="flex items-center gap-1.5 mb-2 pb-1 border-b border-gray-50 text-xs text-green-700 font-extrabold select-none">
+                      <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                      <span>נועה AI - ח. סבן לוגיסטיקה 🟢</span>
+                    </div>
+                  )}
+
+                  {isUser ? (
+                    <div className="text-right whitespace-pre-wrap">{chat.parts[0].text}</div>
+                  ) : (
+                    <div className="markdown-body text-gray-800 leading-relaxed text-sm md:text-base font-medium space-y-2 select-text text-right" dir="rtl">
+                      <ReactMarkdown
+                        components={{
+                          p: ({ children }) => <p className="mb-2 last:mb-0 leading-relaxed font-bold text-gray-800">{children}</p>,
+                          h1: ({ children }) => <h1 className="text-lg md:text-xl font-black mt-4 mb-2 text-green-950 flex items-center gap-1.5 border-b pb-1 border-green-100">{children}</h1>,
+                          h2: ({ children }) => <h2 className="text-md md:text-lg font-black mt-4 mb-2 text-green-900 border-r-4 border-green-500 pr-2">{children}</h2>,
+                          h3: ({ children }) => <h3 className="text-sm md:text-base font-black mt-3 mb-1.5 text-green-800 border-r-4 border-green-400 pr-2">{children}</h3>,
+                          ul: ({ children }) => <ul className="list-disc pr-6 my-2 text-xs md:text-sm font-bold space-y-1.5 text-gray-700">{children}</ul>,
+                          ol: ({ children }) => <ol className="list-decimal pr-6 my-2 text-xs md:text-sm font-bold space-y-1.5 text-gray-700">{children}</ol>,
+                          li: ({ children }) => <li className="leading-relaxed mb-0.5">{children}</li>,
+                          strong: ({ children }) => <strong className="font-black text-green-950">{children}</strong>,
+                          hr: () => <hr className="my-4 border-t border-gray-100" />,
+                          em: ({ children }) => <em className="italic text-gray-500 font-medium">{children}</em>,
+                          code: ({ children }) => <code className="bg-green-50 text-green-700 px-1.5 py-0.5 rounded font-mono text-xs">{children}</code>
+                        }}
+                      >
+                        {chat.parts[0].text.replace(/\r?\n/g, '  \n')}
+                      </ReactMarkdown>
+                    </div>
+                  )}
+                  
+                  {/* Footer with Timestamp and WhatsApp checkmarks receipt */}
+                  <div className="flex items-center justify-end gap-1 mt-2.5 pt-1 text-[10px] text-gray-400 select-none font-sans" dir="ltr">
+                    <span className="text-sky-500 font-bold ml-1">✓✓</span>
+                    <span>{timeStr}</span>
                   </div>
-                )}
-                
-                {chat.role !== 'user' && (
-                  <div className="flex items-center gap-2 mt-3 pt-2 border-t border-sky-50/50">
-                    <button 
-                      onClick={() => speak(chat.parts[0].text, idx)}
-                      className={`p-2 rounded-xl transition-all ${currentlySpeaking === idx ? 'bg-sky-100 text-sky-600' : 'hover:bg-gray-100 text-gray-400'}`}
-                    >
-                      {currentlySpeaking === idx ? <VolumeX size={16} /> : <Volume2 size={16} />}
-                    </button>
-                    
-                    {currentlySpeaking === idx && (
-                      <div className="flex items-center gap-0.5 h-4">
-                        {[1, 2, 3, 4, 3, 2, 1].map((h, i) => (
-                          <motion.div 
-                            key={i}
-                            animate={{ height: [4, h * 4, 4] }}
-                            transition={{ duration: 0.5, repeat: Infinity, delay: i * 0.1 }}
-                            className="w-0.5 bg-sky-400 rounded-full"
-                          />
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          ))}
+
+                  {/* Audio Controls for voice readout */}
+                  {!isUser && (
+                    <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-50">
+                      <button 
+                        onClick={() => speak(chat.parts[0].text, idx)}
+                        className={`p-2 rounded-xl transition-all ${currentlySpeaking === idx ? 'bg-sky-50 text-sky-600' : 'hover:bg-gray-50 text-gray-400'}`}
+                      >
+                        {currentlySpeaking === idx ? <VolumeX size={16} /> : <Volume2 size={16} />}
+                      </button>
+                      
+                      {currentlySpeaking === idx && (
+                        <div className="flex items-center gap-0.5 h-4">
+                          {[1, 2, 3, 4, 3, 2, 1].map((h, i) => (
+                            <motion.div 
+                              key={i}
+                              animate={{ height: [4, h * 4, 4] }}
+                              transition={{ duration: 0.5, repeat: Infinity, delay: i * 0.1 }}
+                              className="w-0.5 bg-sky-400 rounded-full"
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            );
+          })}
         </div>
 
         {/* Input Area */}
@@ -277,15 +297,22 @@ export const NoaChat = ({
           <div className="max-w-full md:max-w-4xl mx-auto space-y-4">
             {/* Quick Actions Scrollable */}
             <div className="flex gap-2 overflow-x-auto no-scrollbar py-2 scroll-smooth">
-              {dynamicSuggestions.map((btn, i) => (
-                <button 
-                  key={i}
-                  onClick={() => onAction(btn.action)}
-                  className="whitespace-nowrap bg-white/95 backdrop-blur-md hover:bg-sky-600 hover:text-white text-sky-950 text-[11px] font-black px-4 py-3 rounded-full transition-all border border-sky-100 shadow-md hover:shadow-sky-200 active:scale-95 flex items-center gap-2"
-                >
-                  {btn.label}
-                </button>
-              ))}
+              {dynamicSuggestions.map((btn, i) => {
+                const isMorningReport = btn.label.includes('דוח בוקר');
+                return (
+                  <button 
+                    key={i}
+                    onClick={() => onAction(btn.action)}
+                    className={`whitespace-nowrap text-[11px] font-black px-5 py-3 rounded-full transition-all active:scale-95 flex items-center gap-2 border shadow-md ${
+                      isMorningReport 
+                        ? 'bg-green-600 hover:bg-green-700 text-white border-green-700 hover:shadow-green-200 scale-105 ring-2 ring-green-100 animate-bounce-subtle' 
+                        : 'bg-white/95 backdrop-blur-md hover:bg-sky-600 hover:text-white text-sky-950 border-sky-100 shadow-md hover:shadow-sky-200'
+                    }`}
+                  >
+                    {btn.label}
+                  </button>
+                );
+              })}
             </div>
 
             <form 
@@ -303,7 +330,7 @@ export const NoaChat = ({
               <input 
                 name="message"
                 autoComplete="off"
-                placeholder="דבר איתי אחי..."
+                placeholder="הקלדי בקשה או שאלה (למשל: תכיני לי דוח בוקר)..."
                 className="flex-1 bg-white/90 backdrop-blur-md border-[3px] border-sky-100 rounded-[2.5rem] px-5 md:px-8 py-3.5 md:py-4 text-sm md:text-base focus:border-sky-600 transition-all outline-none shadow-2xl font-bold"
               />
               <button 
