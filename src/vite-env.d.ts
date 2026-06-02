@@ -1,10 +1,11 @@
-/// <reference types="vite/client" />
+# .env.example
+GEMINI_API_KEY=
+ONESIGNAL_REST_API_KEY=
 
-interface ImportMetaEnv {
-  readonly NEXT_PUBLIC_GOOGLE_DRIVE_API_KEY: string
-  readonly NEXT_PUBLIC_DRIVE_FOLDER_ID: string
-}
+# Publicly accessible in UI (using NEXT_PUBLIC_ prefix as requested)
+NEXT_PUBLIC_GOOGLE_DRIVE_API_KEY=
+NEXT_PUBLIC_DRIVE_FOLDER_ID=1BZebeE8mpX-su-8wA6zKEvhDuS-4vU1y
+VITE_GAS_URL=https://script.google.com/macros/s/AKfycbzhEuTe-PZpjD0lL5GziypNd-ZOged2XqWvJ4RFu9GvpImk3-YyorpbQGuIGipLTYts_Q/exec
 
-interface ImportMeta {
-  readonly env: ImportMetaEnv
-}
+# Server-side only
+GOOGLE_SERVICE_ACCOUNT_JSON=
