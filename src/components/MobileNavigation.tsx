@@ -52,17 +52,17 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
     closed: {
       x: '100%',
       transition: {
-        type: 'spring',
+        type: 'spring' as const,
         stiffness: 400,
         damping: 40,
         staggerChildren: 0.05,
-        staggerDirection: -1
+        staggerDirection: -1 as const
       }
     },
     open: {
       x: 0,
       transition: {
-        type: 'spring',
+        type: 'spring' as const,
         stiffness: 300,
         damping: 30,
         staggerChildren: 0.08,
@@ -73,7 +73,7 @@ export const MobileNavigation: React.FC<MobileNavigationProps> = ({
 
   const itemVariants = {
     closed: { opacity: 0, x: 20, scale: 0.95 },
-    open: { opacity: 1, x: 0, scale: 1, transition: { type: 'spring', stiffness: 300, damping: 25 } }
+    open: { opacity: 1, x: 0, scale: 1, transition: { type: 'spring' as const, stiffness: 300, damping: 25 } }
   };
 
   return (

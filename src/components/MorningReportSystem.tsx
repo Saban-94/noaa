@@ -149,11 +149,11 @@ export default function MorningReportSystem({ onBack, drivers }: { onBack: () =>
               onClick={onBack}
               className="p-2 hover:bg-white rounded-full transition-colors shadow-sm bg-white"
             >
-              <ArrowLeft className="text-gray-600 rotate-180" size={20} md:size={24} />
+              <ArrowLeft className="text-gray-600 rotate-180 w-5 h-5 md:w-6 md:h-6" />
             </button>
             <div>
               <h1 className="text-xl md:text-2xl font-black text-gray-900 flex items-center gap-2">
-                <FileText className="text-sky-600" size={20} md:size={24} />
+                <FileText className="text-sky-600 w-5 h-5 md:w-6 md:h-6" />
                 ארכיון דוחות בוקר
               </h1>
               <p className="text-[10px] md:text-sm text-gray-400 font-medium italic">ריכוז סידור עבודה ושיתוף מהיר</p>
@@ -317,7 +317,7 @@ export default function MorningReportSystem({ onBack, drivers }: { onBack: () =>
                     <div className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full" />
                   ) : (
                     <>
-                      <Share2 size={18} md:size={20} />
+                      <Share2 className="w-[18px] h-[18px] md:w-5 md:h-5" />
                       צור ושמור דוח לארכיון
                     </>
                   )}

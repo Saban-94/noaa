@@ -45,7 +45,8 @@ import {
   Loader2,
   ListTodo,
   FileSpreadsheet,
-  LayoutGrid
+  LayoutGrid,
+  CloudUpload
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
@@ -368,13 +369,17 @@ const RemindersSidebar = ({
   onClose, 
   reminders,
   onToggleComplete,
-  onDelete
+  onDelete,
+  isBackingUp,
+  onBackup
 }: { 
   isOpen: boolean, 
   onClose: () => void,
   reminders: Reminder[],
   onToggleComplete: (id: string, completed: boolean) => void,
-  onDelete: (id: string) => void
+  onDelete: (id: string) => void,
+  isBackingUp: boolean,
+  onBackup: () => void
 }) => (
   <AnimatePresence>
     {isOpen && (
@@ -384,71 +389,92 @@ const RemindersSidebar = ({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={onClose}
-          className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm z-[80]"
+          className="fixed inset-0 bg-gray-900/40 dark:bg-gray-950/60 backdrop-blur-sm z-[80]"
         />
         <motion.div 
           initial={{ x: '-100%' }}
           animate={{ x: 0 }}
           exit={{ x: '-100%' }}
           transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-          className="fixed inset-y-0 left-0 w-80 bg-white shadow-2xl z-[90] flex flex-col p-6 overflow-y-auto"
+          className="fixed inset-y-0 left-0 w-80 bg-white dark:bg-gray-950 shadow-2xl z-[90] flex flex-col p-6 overflow-y-auto border-r border-sky-100/10 dark:border-gray-950"
           dir="rtl"
         >
-          <div className="flex justify-between items-center mb-10">
+          <div className="flex justify-between items-center mb-6">
             <div className="flex items-center gap-3">
-              <div className="bg-sky-600 p-2 rounded-xl text-white">
+              <div className="bg-sky-600 dark:bg-sky-500 p-2 rounded-xl text-white">
                 <ListTodo size={20} />
               </div>
-              <h2 className="text-xl font-bold italic">תזכורות אחי</h2>
+              <h2 className="text-xl font-bold italic text-gray-900 dark:text-gray-100">תזכורות אחי</h2>
             </div>
-            <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-xl transition-colors">
-              <X size={24} className="text-gray-400" />
+            <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-900 rounded-xl transition-colors">
+              <X size={24} className="text-gray-400 dark:text-gray-500" />
             </button>
+          </div>
+
+          {/* Backup to Drive Button */}
+          <div className="mb-6">
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={onBackup}
+              disabled={isBackingUp}
+              className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-sky-50 hover:bg-sky-100/80 dark:bg-sky-950/20 dark:hover:bg-sky-950/40 text-sky-600 dark:text-sky-400 border border-sky-100 dark:border-sky-900/50 rounded-2xl font-black text-sm shadow-sm transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed backdrop-blur-[4px]"
+            >
+              {isBackingUp ? (
+                <Loader2 className="animate-spin text-sky-500 mr-1" size={16} />
+              ) : (
+                <CloudUpload size={16} className="mr-1" />
+              )}
+              <span>{isBackingUp ? 'מגבה ל-Drive...' : 'גיבוי ל-Drive אחי'}</span>
+            </motion.button>
           </div>
 
           <div className="flex-1 space-y-4">
             {reminders.length === 0 ? (
               <div className="text-center py-20">
-                <Sparkles size={40} className="mx-auto text-sky-100 mb-4" />
-                <p className="text-gray-400 font-bold">אין תזכורות לבינתיים אחי. הכל בשליטה!</p>
+                <Sparkles size={40} className="mx-auto text-sky-100 dark:text-sky-950 mb-4" />
+                <p className="text-gray-400 dark:text-gray-500 font-bold">אין תזכורות לבינתיים אחי. הכל בשליטה!</p>
               </div>
             ) : (
               reminders.map((reminder) => (
                 <div 
                   key={reminder.id}
                   className={`p-4 rounded-3xl border transition-all ${
-                    reminder.isCompleted ? 'bg-gray-50 border-gray-100 opacity-60' : 'bg-white border-sky-100 shadow-sm'
+                    reminder.isCompleted 
+                      ? 'bg-gray-50 dark:bg-gray-900/30 border-gray-100 dark:border-gray-900 opacity-60' 
+                      : 'bg-white dark:bg-gray-900 border-sky-100 dark:border-gray-800 shadow-sm'
                   }`}
                 >
                   <div className="flex items-start justify-between mb-2">
                     <button 
                       onClick={() => onToggleComplete(reminder.id!, !reminder.isCompleted)}
                       className={`p-2 rounded-xl transition-all ${
-                        reminder.isCompleted ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-400 hover:bg-sky-50 hover:text-sky-600'
+                        reminder.isCompleted 
+                          ? 'bg-green-500 text-white' 
+                          : 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 hover:bg-sky-50 dark:hover:bg-sky-950 hover:text-sky-600 dark:hover:text-sky-400'
                       }`}
                     >
                       <CheckCircle size={18} />
                     </button>
                     <div className="flex-1 mr-3 text-right">
-                      <h4 className={`font-bold text-sm ${reminder.isCompleted ? 'line-through text-gray-400' : 'text-gray-900'}`}>
+                      <h4 className={`font-bold text-sm ${reminder.isCompleted ? 'line-through text-gray-400 dark:text-gray-500' : 'text-gray-900 dark:text-gray-100'}`}>
                         {reminder.title}
                       </h4>
                       <div className="flex items-center gap-2 mt-1">
-                        <Clock size={12} className="text-sky-400" />
-                        <span className="text-[10px] font-bold text-gray-400">{reminder.dueDate} | {reminder.dueTime}</span>
+                        <Clock size={12} className="text-sky-400 dark:text-sky-500" />
+                        <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500">{reminder.dueDate} | {reminder.dueTime}</span>
                       </div>
                     </div>
                     <button 
                       onClick={() => {
                         if (window.confirm('למחוק את התזכורת אחי?')) onDelete(reminder.id!);
                       }}
-                      className="p-1 text-gray-300 hover:text-red-500 transition-colors"
+                      className="p-1 text-gray-300 dark:text-gray-600 hover:text-red-500 dark:hover:text-red-400 transition-colors"
                     >
                       <Trash2 size={16} />
                     </button>
                   </div>
                   {reminder.description && (
-                    <p className="text-xs text-gray-500 mt-2 pr-11">{reminder.description}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 pr-11">{reminder.description}</p>
                   )}
                 </div>
               ))
@@ -478,6 +504,7 @@ export default function App() {
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [isRemindersOpen, setIsRemindersOpen] = useState(false);
+  const [isBackingUp, setIsBackingUp] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [chatHistory, setChatHistory] = useState<any[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -511,13 +538,25 @@ export default function App() {
   const [endDate, setEndDate] = useState(new Date());
 
   // --- User Memory Persistence ---
-  const [settings, setSettings] = useUserMemory(user?.uid, 'ui_settings', {
-    viewMode: 'kanban' as 'list' | 'calendar' | 'reports' | 'chat' | 'drivers' | 'kanban' | 'import',
+  interface UISettings {
+    viewMode: 'list' | 'calendar' | 'reports' | 'chat' | 'drivers' | 'kanban' | 'import' | 'profile';
+    statusFilter: string;
+    driverFilter: string;
+    warehouseFilter: string;
+    sortBy: string;
+    sortDirection: 'asc' | 'desc';
+    groupByDriver: boolean;
+    notificationsEnabled: boolean;
+    isRangeMode: boolean;
+  }
+
+  const [settings, setSettings] = useUserMemory<UISettings>(user?.uid, 'ui_settings', {
+    viewMode: 'kanban',
     statusFilter: 'all',
     driverFilter: 'all',
     warehouseFilter: 'all',
     sortBy: 'time',
-    sortDirection: 'asc' as 'asc' | 'desc',
+    sortDirection: 'asc',
     groupByDriver: false,
     notificationsEnabled: false,
     isRangeMode: false
@@ -731,6 +770,45 @@ export default function App() {
     setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));
     }, 5000);
+  };
+
+  const handleBackupReminders = async () => {
+    if (isBackingUp) return;
+    setIsBackingUp(true);
+    try {
+      // 1. Process local data: filter active reminders (isCompleted === false)
+      const activeReminders = reminders.filter(r => !r.isCompleted);
+      
+      if (activeReminders.length === 0) {
+        addToast('גיבוי תזכורות', 'אין תזכורות פעילות לגיבוי אחי!', 'warning');
+        setIsBackingUp(false);
+        return;
+      }
+
+      // Format them into a clean string (Date, Title, Description)
+      const formattedContent = activeReminders.map((r, i) => {
+        const dateTimeStr = (r.dueDate || r.dueTime) ? `[זמן יעד: ${r.dueDate || ''} ${r.dueTime || ''}]` : '[ללא זמן יעד]';
+        const titleStr = `תזכורת: ${r.title}`;
+        const descStr = r.description ? `תיאור: ${r.description}` : 'ללא תיאור';
+        return `${i + 1}. ${dateTimeStr} ${titleStr}\n   ${descStr}\n------------------------------------------`;
+      }).join('\n\n');
+
+      const fileName = `SabanOS_Reminders_Backup_${format(new Date(), 'yyyy-MM-dd_HH-mm')}.txt`;
+      
+      // Create a Blob and File object for drive upload
+      const blob = new Blob([formattedContent], { type: 'text/plain;charset=utf-8' });
+      const file = new File([blob], fileName, { type: 'text/plain;charset=utf-8' });
+
+      // 2. Upload file to Drive using the existing infrastructure
+      await uploadFileToDrive(file);
+
+      addToast('גיבוי הושלם בהצלחה', 'קובץ תזכורות פעילות גובה לתיקיית SabanOS ב-Google Drive! 🚀', 'success');
+    } catch (err: any) {
+      console.error("Failed to backup reminders:", err);
+      addToast('שגיאה בגיבוי', 'לא הצלחתי לגבות את התזכורות ל-Google Drive אחי', 'warning');
+    } finally {
+      setIsBackingUp(false);
+    }
   };
 
   // --- Auth & Init ---
@@ -1214,7 +1292,7 @@ export default function App() {
       
       // Feature: Hide delivered from main board, keep in reports
       const isDelivered = order.status === 'delivered';
-      const shouldHideDelivered = viewMode !== 'reports' && isDelivered && statusFilter === 'all';
+      const shouldHideDelivered = (viewMode as string) !== 'reports' && isDelivered && statusFilter === 'all';
       
       return matchesSearch && matchesStatus && matchesDriver && matchesWarehouse && !shouldHideDelivered;
     })
@@ -1307,6 +1385,8 @@ export default function App() {
         reminders={reminders}
         onToggleComplete={(id, completed) => updateReminder(id, { isCompleted: completed })}
         onDelete={deleteReminder}
+        isBackingUp={isBackingUp}
+        onBackup={handleBackupReminders}
       />
 
       {/* Manual Order Modal */}
@@ -1740,14 +1820,14 @@ export default function App() {
               </button>
               <button 
                 onClick={() => setViewMode('reports')}
-                className={`p-1.5 rounded-lg transition-all ${viewMode === 'reports' ? 'bg-white shadow-sm text-sky-600' : 'text-gray-400 hover:text-gray-600'}`}
+                className={`p-1.5 rounded-lg transition-all ${(viewMode as string) === 'reports' ? 'bg-white shadow-sm text-sky-600' : 'text-gray-400 hover:text-gray-600'}`}
                 title="ארכיון דוחות"
               >
                 <FileText size={20} />
               </button>
               <button 
                 onClick={() => setViewMode('chat')}
-                className={`p-1.5 rounded-lg transition-all ${viewMode === 'chat' ? 'bg-white shadow-sm text-sky-600' : 'text-gray-400 hover:text-gray-600'}`}
+                className={`p-1.5 rounded-lg transition-all ${(viewMode as string) === 'chat' ? 'bg-white shadow-sm text-sky-600' : 'text-gray-400 hover:text-gray-600'}`}
                 title="נועה AI"
               >
                 <MessageSquare size={20} />

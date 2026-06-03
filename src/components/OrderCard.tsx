@@ -23,7 +23,8 @@ import {
   Package,
   X,
   ExternalLink,
-  ChevronLeft
+  ChevronLeft,
+  MapPin
 } from 'lucide-react';
 import { AnimatePresence } from 'motion/react';
 import { predictOrderEta } from '../services/auraService';
@@ -356,6 +357,7 @@ export const OrderCard = ({
   const [showDocs, setShowDocs] = useState(false);
   const [showItems, setShowItems] = useState(false);
   const [isLocalUploading, setIsLocalUploading] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   const parsedItemsCount = parseItems(order.items).length;
 
@@ -425,16 +427,41 @@ export const OrderCard = ({
         y: -4,
         transition: { type: 'spring', stiffness: 400, damping: 22 }
       }}
+      onClick={(e) => {
+        const target = e.target as HTMLElement;
+        if (target.closest('button, label, input, a, select')) {
+          return;
+        }
+        setIsExpanded(!isExpanded);
+      }}
       className={cn(
         "order-card bg-white/95 dark:bg-gray-900/90 backdrop-blur-sm rounded-[2rem] border border-sky-100 dark:border-gray-800 shadow-md hover:shadow-[0_22px_45px_rgba(14,165,233,0.22)] dark:hover:shadow-[0_22px_45px_rgba(56,189,248,0.12)] hover:border-sky-300 dark:hover:border-sky-500/50 transition-all duration-300 relative group cursor-pointer",
         isCompact ? "p-4" : "p-5"
       )}
     >
+      <AnimatePresence>
+        {isExpanded && (
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            transition={{ duration: 0.2 }}
+            className={cn(
+              "absolute bg-gray-900 text-white px-3 py-1 rounded-full text-[10px] font-black z-10 shadow-lg",
+              isCompact ? "top-2 left-2" : "top-4 left-4"
+            )}
+          >
+            #{order.orderNumber || order.id?.slice(-4).toUpperCase()}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Dynamic Status Badge Top Right */}
       <div className={cn(
-        "absolute bg-gray-900 text-white px-3 py-1 rounded-full text-[10px] font-black z-10 shadow-lg",
-        isCompact ? "top-2 left-2" : "top-4 left-4"
+        "absolute z-10",
+        isCompact ? "top-2 right-2" : "top-4 right-4"
       )}>
-        #{order.orderNumber || order.id?.slice(-4).toUpperCase()}
+        <StatusBadge status={order.status} />
       </div>
 
       {!isCompact && (
@@ -443,7 +470,10 @@ export const OrderCard = ({
             <div className="flex items-center gap-2">
               {(order.orderFormId || order.deliveryNoteId) ? (
                 <button 
-                  onClick={() => setShowDocs(!showDocs)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowDocs(!showDocs);
+                  }}
                   disabled={order.orderFormId === 'PENDING_SCAN' || order.deliveryNoteId === 'PENDING_SCAN'}
                   className={`p-1.5 rounded-full shadow-lg border transition-all ${
                     showDocs ? 'bg-sky-600 text-white border-sky-600' : 
@@ -494,214 +524,240 @@ export const OrderCard = ({
         </div>
       )}
 
-      <div className={cn(
-        "flex gap-4 pt-2",
-        isCompact ? "mb-4" : "mb-6"
-      )}>
-        <div className={cn(
-          "rounded-3xl h-fit border shadow-sm flex items-center justify-center",
-          driver?.vehicleType === 'crane' ? 'bg-sky-50 text-sky-600 border-sky-100' : 'bg-blue-50 text-blue-600 border-blue-100',
-          isCompact ? "p-2.5" : "p-4"
-        )}>
-          <Truck size={isCompact ? 20 : 28} strokeWidth={2.5} />
-        </div>
-        <div className="flex-1 min-w-0 text-right">
-          <h3 className={cn(
-            "font-black text-gray-900 leading-tight mb-1 truncate",
-            isCompact ? "text-base" : "text-xl"
-          )}>
-            {highlightText(order.customerName, searchQuery)}
-          </h3>
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="text-[10px] text-gray-400 font-bold flex items-center gap-1">
-               <Info size={10} /> {highlightText(order.destination, searchQuery)}
-            </p>
-          </div>
-        </div>
-      </div>
+      {/* Top spacing to offset elements absolute layout */}
+      <div className={cn("w-full", isCompact ? "h-6 mb-2" : "h-9 mb-3")} />
 
-      <div className={cn(
-        "flex items-center justify-between bg-sky-50/50 rounded-2xl border border-sky-50/50",
-        isCompact ? "p-3 mb-4" : "p-4 mb-6"
-      )}>
-        <div className="flex flex-col gap-1 text-right">
-          {!isCompact && <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">נהג וזמן</span>}
-          <div className="flex items-center gap-2">
+      {/* Internal Details 2-Column Grid Layout */}
+      <div className="grid grid-cols-2 gap-3 mb-4 text-right">
+        {/* Column 1: Client & Destination */}
+        <div className="bg-sky-50/25 dark:bg-sky-950/15 p-3 rounded-2xl border border-sky-100/30 dark:border-sky-950/30 flex flex-col justify-between min-w-0 shadow-[inset_0_1px_3px_rgba(14,165,233,0.01)]">
+          <div className="mb-1 min-w-0">
+            <div className="flex items-center justify-between mb-1" dir="rtl">
+              <span className="text-[9px] font-black text-sky-600 dark:text-sky-400 uppercase tracking-wider block">לקוח ויעד</span>
+              <motion.div
+                animate={{ rotate: isExpanded ? 90 : 0 }}
+                transition={{ duration: 0.2 }}
+                className="text-sky-500"
+              >
+                <ChevronLeft size={12} className="-rotate-90" />
+              </motion.div>
+            </div>
+            <h3 className={cn(
+              "font-black text-gray-900 dark:text-gray-100 leading-tight truncate",
+              isCompact ? "text-xs sm:text-sm" : "text-sm sm:text-base"
+            )}>
+              {highlightText(order.customerName, searchQuery)}
+            </h3>
+          </div>
+          
+          <AnimatePresence initial={false}>
+            {isExpanded && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.25 }}
+                className="overflow-hidden"
+              >
+                <p className="text-[10px] text-gray-500 dark:text-gray-400 font-bold flex items-center gap-1 truncate mt-2 border-t border-sky-100/10 pt-1.5">
+                   <MapPin size={11} className="text-sky-500 flex-shrink-0" /> 
+                   <span className="truncate">{highlightText(order.destination, searchQuery)}</span>
+                </p>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* Column 2: Driver & Logistics */}
+        <div className="bg-sky-50/25 dark:bg-sky-950/15 p-3 rounded-2xl border border-sky-100/30 dark:border-sky-950/30 flex flex-col justify-between min-w-0 shadow-[inset_0_1px_3px_rgba(14,165,233,0.01)]">
+          <div className="mb-2 min-w-0">
+            <span className="text-[9px] font-black text-sky-600 dark:text-sky-400 uppercase tracking-wider block mb-1">מוביל ולוגיסטיקה</span>
             {order.driverId === 'self' ? (
-              <span className={cn("font-black text-gray-900", isCompact ? "text-xs" : "text-sm")}>איסוף עצמי</span>
+              <span className={cn("font-black text-gray-900 dark:text-gray-100 block truncate", isCompact ? "text-xs" : "text-sm")}>איסוף עצמי</span>
             ) : (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 min-w-0">
                 {driver?.avatar ? (
                   <img 
                     src={driver.avatar} 
                     alt={driver.name} 
-                    className={cn("rounded-full object-cover border-2 border-white shadow-sm", isCompact ? "w-5 h-5" : "w-7 h-7")}
+                    className="w-5.5 h-5.5 rounded-full object-cover border border-white dark:border-gray-800 shadow-sm flex-shrink-0"
                     referrerPolicy="no-referrer"
                   />
                 ) : (
-                  <div className={cn("rounded-full bg-sky-100 flex items-center justify-center border-2 border-white shadow-sm text-sky-600", isCompact ? "w-5 h-5" : "w-7 h-7")}>
-                    <User size={isCompact ? 10 : 14} />
+                  <div className="w-5.5 h-5.5 rounded-full bg-sky-100 dark:bg-sky-900/60 flex items-center justify-center border border-white dark:border-gray-800 shadow-sm text-sky-600 dark:text-sky-400 flex-shrink-0">
+                    <User size={10} />
                   </div>
                 )}
-                <span className={cn("font-black text-gray-900 leading-tight", isCompact ? "text-xs" : "text-sm")}>
+                <span className={cn("font-black text-gray-900 dark:text-gray-100 leading-tight truncate", isCompact ? "text-[11px] sm:text-xs" : "text-xs sm:text-sm")}>
                   {driver?.name.split(' ')[0]}
                 </span>
-              </div>
-            )}
-            <span className={cn("font-black text-sky-600 self-center mr-1", isCompact ? "text-xs" : "text-sm")}>| {order.time}</span>
-          </div>
-        </div>
-        <div className="flex flex-col items-end gap-1">
-          <StatusBadge status={order.status} />
-          {isPredicting ? (
-            <div className="flex items-center gap-1.5 mt-1">
-              <Sparkles size={12} className="text-sky-400 animate-pulse" />
-              <div className="w-16 h-3 bg-sky-100/50 rounded-full overflow-hidden relative border border-sky-100">
-                <div className="absolute inset-0 shimmer-anim" />
-              </div>
-            </div>
-          ) : order.eta && (
-            <span className="text-[10px] font-black text-sky-600 animate-pulse flex items-center gap-1">
-              <Sparkles size={10} />
-              צפי: {order.eta}
-            </span>
-          )}
-        </div>
-      </div>
-
-      <div className="space-y-4">
-        {!isCompact ? (
-          <div className="bg-sky-50/30 p-4 rounded-[1.5rem] border border-sky-100/50 flex items-center justify-between group/items">
-            <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm border border-sky-100 transition-transform group-hover/items:scale-110">
-                  <Package size={20} className="text-sky-600" />
-                </div>
-                <div>
-                  <span className="text-[10px] font-black text-sky-700/60 uppercase tracking-widest block leading-none mb-1">תכולת משלוח</span>
-                  <p className="text-xs font-black text-gray-700 leading-none">
-                    {parsedItemsCount} פריטים רשומים
-                  </p>
-                </div>
-            </div>
-            
-            <button 
-              onClick={() => setShowItems(true)}
-              className="px-4 py-2 bg-white text-sky-600 border border-sky-200 rounded-xl font-black text-[11px] shadow-sm hover:bg-sky-600 hover:text-white hover:border-sky-600 transition-all active:scale-95"
-            >
-              צפייה בפריטים
-            </button>
-          </div>
-        ) : (
-          <button 
-            onClick={() => setShowItems(true)}
-            className="w-full flex items-center justify-between p-3 bg-sky-50/30 hover:bg-sky-100/50 rounded-xl border border-sky-100/50 transition-colors"
-          >
-            <div className="flex items-center gap-2">
-              <Package size={14} className="text-sky-600" />
-              <span className="text-[11px] font-black text-gray-700">{parsedItemsCount} פריטים</span>
-            </div>
-            <ChevronLeft size={14} className="text-sky-400" />
-          </button>
-        )}
-
-        <AnimatePresence>
-          {showItems && (
-            <ItemsModal order={order} onClose={() => setShowItems(false)} />
-          )}
-        </AnimatePresence>
-
-        <div className={cn(
-          "flex items-center gap-2 pt-2 border-t border-gray-100",
-          isCompact ? "flex-wrap justify-end" : ""
-        )}>
-          <button 
-            onClick={() => {
-              const nextStatusMap: Record<string, string> = {
-                pending: 'preparing',
-                preparing: 'ready',
-                ready: 'delivered'
-              };
-              onUpdateStatus(order.id!, nextStatusMap[order.status] || order.status);
-            }}
-            className={cn(
-              "bg-sky-600 text-white rounded-2xl font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-sky-600/20 active:scale-95 transition-all min-h-[44px]",
-              isCompact ? "px-4 py-2" : "flex-1 py-4"
-            )}
-          >
-            <CheckCircle2 size={isCompact ? 16 : 18} /> 
-            {isCompact ? "קדם" : "עדכן סטטוס"}
-          </button>
-          
-          {isCompact ? (
-             <div className="flex items-center gap-1">
-               <button onClick={() => onEdit(order)} className="p-3 text-gray-400 hover:text-sky-600 hover:bg-sky-50 rounded-xl min-h-[44px] min-w-[44px] flex items-center justify-center">
-                 <Pencil size={16} />
-               </button>
-               <button onClick={handleShare} className="p-3 text-gray-400 hover:text-sky-600 hover:bg-sky-50 rounded-xl min-h-[44px] min-w-[44px] flex items-center justify-center">
-                 <Share2 size={16} />
-               </button>
-               <button 
-                onClick={() => {
-                  if (window.confirm('למחוק אחי?')) onDelete(order.id!);
-                }}
-                className="p-3 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl min-h-[44px] min-w-[44px] flex items-center justify-center"
-               >
-                 <Trash2 size={16} />
-               </button>
-             </div>
-          ) : (
-            <>
-              <button 
-                onClick={handleSmartPredict}
-                disabled={isPredicting}
-                className="bg-gray-900 text-white p-3.5 rounded-2xl hover:bg-sky-700 transition-all flex items-center justify-center gap-2 shadow-lg shadow-gray-900/10 active:scale-95 disabled:opacity-50 min-h-[44px]"
-              >
-                {isPredicting ? (
-                  <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
-                ) : (
-                  <Sparkles size={18} />
+                {driver?.vehicleType === 'crane' && (
+                  <span className="bg-amber-105 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 text-[8px] px-1 py-0.5 rounded font-black flex-shrink-0">מנוף</span>
                 )}
-                <span className="hidden sm:inline text-xs font-bold">AI ETA</span>
-              </button>
+              </div>
+            )}
+          </div>
 
-              <button 
-                onClick={handleShare}
-                title="שתף הזמנה"
-                className="bg-white border-2 border-gray-100 text-gray-600 p-3.5 rounded-2xl hover:bg-sky-50 hover:text-sky-600 hover:border-sky-100 transition-all active:scale-95 shadow-sm min-h-[44px] min-w-[44px] flex items-center justify-center"
-              >
-                <Share2 size={18} />
-              </button>
-
-              <button 
-                onClick={() => onEdit(order)}
-                title="ערוך הזמנה"
-                className="p-3.5 text-gray-400 hover:text-sky-600 hover:bg-sky-50 rounded-2xl transition-all min-h-[44px] min-w-[44px] flex items-center justify-center"
-              >
-                <Pencil size={18} />
-              </button>
-
-              <button 
-                onClick={() => onRepeat(order)}
-                title="הזמנה חוזרת (שכפול)"
-                className="p-3.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-2xl transition-all min-h-[44px] min-w-[44px] flex items-center justify-center"
-              >
-                <RotateCcw size={18} />
-              </button>
-
-              <button 
-                onClick={() => {
-                  if (window.confirm('בטוח שאתה רוצה למחוק את ההזמנה לצמיתות אחי?')) {
-                    onDelete(order.id!);
-                  }
-                }}
-                className="p-3.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-2xl transition-all min-h-[44px] min-w-[44px] flex items-center justify-center"
-              >
-                <Trash2 size={18} />
-              </button>
-            </>
-          )}
+          <div className="flex items-center justify-between text-[10px] text-gray-500 dark:text-gray-400 font-bold min-w-0">
+            <span className="flex items-center gap-1 truncate">
+              <Clock size={11} className="text-sky-500 flex-shrink-0" />
+              {order.time}
+            </span>
+            {isPredicting ? (
+              <span className="text-[9px] text-sky-600 dark:text-sky-400 animate-pulse flex-shrink-0">מחשב...</span>
+            ) : order.eta && (
+              <span className="text-[10px] font-black text-sky-600 dark:text-sky-400 animate-pulse flex items-center gap-0.5 flex-shrink-0">
+                <Sparkles size={9} />
+                צפי: {order.eta}
+              </span>
+            )}
+          </div>
         </div>
       </div>
+
+      <AnimatePresence initial={false}>
+        {isExpanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.25, ease: "easeInOut" }}
+            className="overflow-hidden space-y-4 pt-1"
+          >
+            {!isCompact ? (
+              <div className="bg-sky-50/30 p-4 rounded-[1.5rem] border border-sky-100/50 flex items-center justify-between group/items">
+                <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm border border-sky-100 transition-transform group-hover/items:scale-110">
+                      <Package size={20} className="text-sky-600" />
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-black text-sky-700/60 uppercase tracking-widest block leading-none mb-1">תכולת משלוח</span>
+                      <p className="text-xs font-black text-gray-700 leading-none">
+                        {parsedItemsCount} פריטים רשומים
+                      </p>
+                    </div>
+                </div>
+                
+                <button 
+                  onClick={() => setShowItems(true)}
+                  className="px-4 py-2 bg-white text-sky-600 border border-sky-200 rounded-xl font-black text-[11px] shadow-sm hover:bg-sky-600 hover:text-white hover:border-sky-600 transition-all active:scale-95"
+                >
+                  צפייה בפריטים
+                </button>
+              </div>
+            ) : (
+              <button 
+                onClick={() => setShowItems(true)}
+                className="w-full flex items-center justify-between p-3 bg-sky-50/30 hover:bg-sky-100/50 rounded-xl border border-sky-100/50 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <Package size={14} className="text-sky-600" />
+                  <span className="text-[11px] font-black text-gray-700">{parsedItemsCount} פריטים</span>
+                </div>
+                <ChevronLeft size={14} className="text-sky-400" />
+              </button>
+            )}
+
+            <div className={cn(
+              "flex items-center gap-2 pt-2 border-t border-gray-100",
+              isCompact ? "flex-wrap justify-end" : ""
+            )}>
+              <button 
+                onClick={() => {
+                  const nextStatusMap: Record<string, string> = {
+                    pending: 'preparing',
+                    preparing: 'ready',
+                    ready: 'delivered'
+                  };
+                  onUpdateStatus(order.id!, nextStatusMap[order.status] || order.status);
+                }}
+                className={cn(
+                  "bg-sky-600 text-white rounded-2xl font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-sky-600/20 active:scale-95 transition-all min-h-[44px]",
+                  isCompact ? "px-4 py-2" : "flex-1 py-4"
+                )}
+              >
+                <CheckCircle2 size={isCompact ? 16 : 18} /> 
+                {isCompact ? "קדם" : "עדכן סטטוס"}
+              </button>
+              
+              {isCompact ? (
+                 <div className="flex items-center gap-1">
+                   <button onClick={() => onEdit(order)} className="p-3 text-gray-400 hover:text-sky-600 hover:bg-sky-50 rounded-xl min-h-[44px] min-w-[44px] flex items-center justify-center">
+                     <Pencil size={16} />
+                   </button>
+                   <button onClick={handleShare} className="p-3 text-gray-400 hover:text-sky-600 hover:bg-sky-50 rounded-xl min-h-[44px] min-w-[44px] flex items-center justify-center">
+                     <Share2 size={16} />
+                   </button>
+                   <button 
+                    onClick={() => {
+                      if (window.confirm('למחוק אחי?')) onDelete(order.id!);
+                    }}
+                    className="p-3 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl min-h-[44px] min-w-[44px] flex items-center justify-center"
+                   >
+                     <Trash2 size={16} />
+                   </button>
+                 </div>
+              ) : (
+                <>
+                  <button 
+                    onClick={handleSmartPredict}
+                    disabled={isPredicting}
+                    className="bg-gray-900 text-white p-3.5 rounded-2xl hover:bg-sky-700 transition-all flex items-center justify-center gap-2 shadow-lg shadow-gray-900/10 active:scale-95 disabled:opacity-50 min-h-[44px]"
+                  >
+                    {isPredicting ? (
+                      <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
+                    ) : (
+                      <Sparkles size={18} />
+                    )}
+                    <span className="hidden sm:inline text-xs font-bold">AI ETA</span>
+                  </button>
+
+                  <button 
+                    onClick={handleShare}
+                    title="שתף הזמנה"
+                    className="bg-white border-2 border-gray-100 text-gray-600 p-3.5 rounded-2xl hover:bg-sky-50 hover:text-sky-600 hover:border-sky-100 transition-all active:scale-95 shadow-sm min-h-[44px] min-w-[44px] flex items-center justify-center"
+                  >
+                    <Share2 size={18} />
+                  </button>
+
+                  <button 
+                    onClick={() => onEdit(order)}
+                    title="ערוך הזמנה"
+                    className="p-3.5 text-gray-400 hover:text-sky-600 hover:bg-sky-50 rounded-2xl transition-all min-h-[44px] min-w-[44px] flex items-center justify-center"
+                  >
+                    <Pencil size={18} />
+                  </button>
+
+                  <button 
+                    onClick={() => onRepeat(order)}
+                    title="הזמנה חוזרת (שכפול)"
+                    className="p-3.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-2xl transition-all min-h-[44px] min-w-[44px] flex items-center justify-center"
+                  >
+                    <RotateCcw size={18} />
+                  </button>
+
+                  <button 
+                    onClick={() => {
+                      if (window.confirm('בטוח שאתה רוצה למחוק את ההזמנה לצמיתות אחי?')) {
+                        onDelete(order.id!);
+                      }
+                    }}
+                    className="p-3.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-2xl transition-all min-h-[44px] min-w-[44px] flex items-center justify-center"
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                </>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showItems && (
+          <ItemsModal order={order} onClose={() => setShowItems(false)} />
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 };
