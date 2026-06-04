@@ -4,6 +4,9 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { format } from 'date-fns';
 import { getFileBase64, listDriveFiles } from './driveService';
 
+// Google Apps Script Web App Endpoint URL that bridges Gmail and Drive folder sync
+const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzvpJb5M2tygoTicI5QLZTwnm8AdF-qPpXLCJ0g7xQj5Qrq0k_eTRjP2_hAca4HKMS7/exec";
+
 // Initialize the Gemini client using the secure client-side setup in Vite
 const ai = new GoogleGenAI({ 
   apiKey: process.env.GEMINI_API_KEY,
@@ -22,6 +25,27 @@ export interface ParseResult {
   error?: string;
   customerName?: string;
   orderNumber?: string;
+}
+
+/**
+ * Sends a trigger requests to Google Apps Script (GAS) to search and sync comax emails directly.
+ * Due to standard GAS behavior, mode is set to 'no-cors'.
+ */
+export async function triggerManualEmailScan(): Promise<void> {
+  console.log("Triggering Google Apps Script via Web App endpoint:", GAS_WEB_APP_URL);
+  
+  try {
+    // We send with no-cors because Apps Script redirects don't satisfy CORS standards in browser environment
+    await fetch(GAS_WEB_APP_URL, {
+      method: 'GET',
+      mode: 'no-cors',
+      cache: 'no-cache'
+    });
+    console.log("Successfully sent execution signal to GAS Web App (No-Cors).");
+  } catch (error) {
+    console.error("Failed to call GAS Web App trigger, checking fallback:", error);
+    throw new Error("לא הצלחתי להפעיל את סנכרון המיילים בגוגל אחי");
+  }
 }
 
 /**

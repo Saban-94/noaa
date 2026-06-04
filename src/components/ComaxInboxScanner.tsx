@@ -9,7 +9,7 @@ import {
   Inbox
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { scanAndParseComaxOrders, ParseResult } from '../services/comaxParserService';
+import { scanAndParseComaxOrders, ParseResult, triggerManualEmailScan } from '../services/comaxParserService';
 
 interface ComaxInboxScannerProps {
   onAddToast: (title: string, message: string, type: 'info' | 'success' | 'warning') => void;
@@ -17,6 +17,7 @@ interface ComaxInboxScannerProps {
 
 export const ComaxInboxScanner: React.FC<ComaxInboxScannerProps> = ({ onAddToast }) => {
   const [isScanning, setIsScanning] = useState(false);
+  const [scanStep, setScanStep] = useState<string>('');
   const [scanResults, setScanResults] = useState<ParseResult[]>([]);
   const [hasScanned, setHasScanned] = useState(false);
 
@@ -25,9 +26,20 @@ export const ComaxInboxScanner: React.FC<ComaxInboxScannerProps> = ({ onAddToast
     setIsScanning(true);
     setScanResults([]);
     setHasScanned(false);
+    setScanStep('בודק מיילים חדשים...');
 
     try {
-      onAddToast('סריקת קומקס', 'מתחילה לסרוק קבצי קומקס חדשים מ-Drive אחי... 📧', 'info');
+      // Phase 1: Trigger Google Apps Script Web App manually
+      onAddToast('סנכרון מייל קומקס', 'מפעיל סריקה מהירה של תיבת המייל אחי... 📧', 'info');
+      await triggerManualEmailScan();
+
+      // Phase 2: Wait 2.5 seconds for Google Drive file indexing/propagation
+      setScanStep('מסתנכרן עם Drive...');
+      await new Promise(resolve => setTimeout(resolve, 2500));
+
+      // Phase 3: Run existing Drive folder checking & Gemini parsing logic
+      setScanStep('מנתח מסמכים עם AI...');
+      onAddToast('סריקת קומקס', 'מתחילה לקרוא קבצי PDF חדשים ולפענח באמצעות Gemini! 🧠', 'info');
       
       const results = await scanAndParseComaxOrders();
       setScanResults(results);
@@ -71,6 +83,7 @@ export const ComaxInboxScanner: React.FC<ComaxInboxScannerProps> = ({ onAddToast
       );
     } finally {
       setIsScanning(false);
+      setScanStep('');
     }
   };
 
@@ -100,14 +113,14 @@ export const ComaxInboxScanner: React.FC<ComaxInboxScannerProps> = ({ onAddToast
           whileTap={{ scale: 0.98 }}
           onClick={handleScan}
           disabled={isScanning}
-          className="relative overflow-hidden flex items-center justify-center gap-2.5 px-6 py-3.5 bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 active:from-sky-700 active:to-blue-700 text-white rounded-2xl font-black text-sm shadow-md shadow-sky-600/10 hover:shadow-sky-600/20 transition-all font-sans disabled:opacity-50 disabled:cursor-not-allowed border border-sky-500/20 backdrop-blur-sm self-start sm:self-center"
+          className="relative overflow-hidden flex items-center justify-center gap-2.5 px-6 py-3.5 bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 active:from-sky-700 active:to-blue-700 text-white rounded-2xl font-black text-sm shadow-md shadow-sky-600/10 hover:shadow-sky-600/20 transition-all font-sans disabled:opacity-50 disabled:cursor-not-allowed border border-sky-500/20 backdrop-blur-sm self-start sm:self-center min-w-[240px]"
         >
           {isScanning ? (
-            <Loader2 className="animate-spin text-white" size={18} />
+            <Loader2 className="animate-spin text-white animate-normal" size={18} />
           ) : (
             <CloudUpload size={18} />
           )}
-          <span>{isScanning ? 'סורק ומפענח...' : 'סרוק הזמנות חדשות מהמייל'}</span>
+          <span>{isScanning ? scanStep : 'סרוק הזמנות חדשות מהמייל'}</span>
         </motion.button>
       </div>
 
