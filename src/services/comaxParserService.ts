@@ -6,7 +6,7 @@ import { format } from 'date-fns';
 // Direct Apps Script API deployment URL
 const GAS_URL = "https://script.google.com/macros/s/AKfycbyqvULuPQZM3y4lKVwlv4A4HqiSp9WrrIoaVtNsIAhU0gyzRJDfGvW3hcCm63w1XWq4QA/exec";
 
-// Initialize the secure server-authenticated Gemini client
+// Initialize the secure server-authenticated Gemini client (as a reliable fallback)
 const ai = new GoogleGenAI({ 
   apiKey: process.env.GEMINI_API_KEY,
   httpOptions: {
@@ -30,7 +30,13 @@ interface ComaxFile {
   id: string;
   name: string;
   mimeType: string;
-  base64: string;
+  base64?: string;
+  parsedResult?: {
+    customerName: string;
+    orderNumber: string;
+    destination: string;
+    items: Array<{ sku: string; name: string; qty?: string; quantity?: string }>;
+  };
 }
 
 /**
@@ -53,11 +59,11 @@ export async function triggerManualEmailScan(): Promise<void> {
 }
 
 /**
- * Main parser entry point: fetches Base64 records directly from the GAS endpoint,
- * runs Gemini extract on the PDFs, and safely persistent-saves them to Firestore.
+ * Main parser entry point: fetches parsed records directly from our custom GAS Apps Script brain,
+ * saves parsed pending orders into Firestore, and supports localized failovers.
  */
 export async function scanAndParseComaxOrders(): Promise<ParseResult[]> {
-  console.log("Requesting documents payload from GAS URL:", GAS_URL);
+  console.log("Requesting documents payload from Apps Script brain:", GAS_URL);
   
   let files: ComaxFile[] = [];
   
@@ -68,7 +74,7 @@ export async function scanAndParseComaxOrders(): Promise<ParseResult[]> {
     });
     
     if (!response.ok) {
-      throw new Error(`שגיאה בתקשורת עם השרת: ${response.status}`);
+      throw new Error(`שגיאה בתקשורת עם שרת Google: ${response.status}`);
     }
     
     const data = await response.json();
@@ -93,7 +99,7 @@ export async function scanAndParseComaxOrders(): Promise<ParseResult[]> {
 
   for (const file of files) {
     try {
-      // 1. Prevent duplicate processing by checking for existing orders
+      // 1. Prevent duplicate processing by checking for existing orders by unique source PDF/Email ID
       const dupQuery = query(collection(db, 'orders'), where('sourcePdfId', '==', file.id));
       const dupSnap = await getDocs(dupQuery);
 
@@ -107,20 +113,26 @@ export async function scanAndParseComaxOrders(): Promise<ParseResult[]> {
         continue;
       }
 
-      // 2. Validate Base64 payload
-      if (!file.base64 || file.base64.length < 50) {
-        throw new Error("קובץ ה-PDF ריק או שלא הורד במלואו על ידי השרת אחי.");
+      // 2. Resolve document data: Prefer pre-parsed structured result from GAS brain, otherwise fall back to client AI
+      let docData;
+      if (file.parsedResult && file.parsedResult.customerName) {
+        console.log("Using pre-parsed structured data from GAS brain for:", file.name);
+        docData = file.parsedResult;
+      } else {
+        if (!file.base64 || file.base64.length < 50) {
+          throw new Error("קובץ ה-PDF ריק ואין ברשותנו נתונים מפוענחים קודמים אחי.");
+        }
+        console.log("GAS data had no pre-parsed fields. Enacting front-end Gemini fallback parser for:", file.name);
+        docData = await parseComaxPdfWithGemini(file.base64, file.mimeType);
       }
 
-      // 3. Query Gemini using the direct file.base64 and file.mimeType parameters
-      const docData = await parseComaxPdfWithGemini(file.base64, file.mimeType);
-
-      // 4. Clean and format table entries for SabanOS compatibility
-      const formattedItems = docData.items
-        .map(item => `${item.quantity || 1} ${item.name || ''} ${item.sku || ''}`.trim())
+      // 3. Clean and format table entries logically for SabanOS compatibility
+      const itemsList = docData.items || [];
+      const formattedItems = itemsList
+        .map(item => `${item.qty || item.quantity || 1} ${item.name || ''} ${item.sku || ''}`.trim())
         .join('\n');
 
-      // 5. Structure & write document to Firebase Firestore
+      // 4. Structure & write document directly to Firebase Firestore
       const newOrderBody = {
         orderNumber: docData.orderNumber || `CM-${Math.floor(1000 + Math.random() * 9000)}`,
         customerName: docData.customerName || 'לקוח קומקס כללי',
@@ -134,7 +146,7 @@ export async function scanAndParseComaxOrders(): Promise<ParseResult[]> {
         orderFormId: file.id,
         sourcePdfId: file.id,
         source: 'import',
-        notes: `יובא אוטומטית מסריקת מייל Comax אחי. שם קובץ: ${file.name}`,
+        notes: `יובא אוטומטית מסריקת מייל קומקס (מופעל ע"י Google Apps Script). קובץ: ${file.name}`,
         createdBy: auth.currentUser?.uid || 'comax-sync-agent',
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
@@ -166,7 +178,7 @@ export async function scanAndParseComaxOrders(): Promise<ParseResult[]> {
 }
 
 /**
- * Gemini extraction pipeline, utilizing strict Type structure validation schemas.
+ * Gemini extraction pipeline fallback, utilizing strict Type structure validation schemas.
  */
 async function parseComaxPdfWithGemini(base64Data: string, mimeType: string = "application/pdf") {
   if (!process.env.GEMINI_API_KEY) {
@@ -226,11 +238,23 @@ async function parseComaxPdfWithGemini(base64Data: string, mimeType: string = "a
 
   try {
     const rawText = response.text.trim();
-    return JSON.parse(rawText) as {
+    const parsed = JSON.parse(rawText) as {
       customerName: string;
       orderNumber: string;
       destination: string;
       items: Array<{ sku: string; name: string; quantity: string }>;
+    };
+    
+    // Map 'quantity' back to our 'qty' schema for seamless downstream operations
+    return {
+      customerName: parsed.customerName,
+      orderNumber: parsed.orderNumber,
+      destination: parsed.destination,
+      items: parsed.items.map(item => ({
+        sku: item.sku,
+        name: item.name,
+        qty: item.quantity
+      }))
     };
   } catch (err: any) {
     console.error("Failed to parse Gemini model response text as JSON:", response.text);

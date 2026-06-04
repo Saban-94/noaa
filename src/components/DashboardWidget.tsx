@@ -98,6 +98,55 @@ const CustomTooltip: React.FC<CustomTooltipProps> = ({ active, payload }) => {
   return null;
 };
 
+// Framer motion variants for Recharts container staggerChildren layout
+const rechartsContainerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.12,
+      delayChildren: 0.05
+    }
+  }
+};
+
+const rechartsItemVariants = {
+  hidden: { opacity: 0, y: 15 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      type: "spring" as const,
+      stiffness: 100,
+      damping: 15
+    }
+  }
+};
+
+// Custom Animated Bar Shape using Framer Motion
+const AnimatedBarShape = (props: any) => {
+  const { x, y, width, height, fill, index } = props;
+  if (!height || height <= 0) return null;
+  
+  return (
+    <motion.rect
+      x={x}
+      width={width}
+      fill={fill}
+      rx={8}
+      ry={8}
+      initial={{ y: y + height, height: 0 }}
+      animate={{ y: y, height: height }}
+      transition={{ 
+        type: "spring" as const, 
+        stiffness: 85, 
+        damping: 14,
+        delay: (index ?? 0) * 0.15 
+      }}
+    />
+  );
+};
+
 export const DashboardWidget: React.FC = () => {
   const [todayOrders, setTodayOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -295,11 +344,17 @@ export const DashboardWidget: React.FC = () => {
       </div>
 
       {/* Recharts Analytics Panel */}
-      <div 
+      <motion.div 
         id="recharts-visual-panel"
+        variants={rechartsContainerVariants}
+        initial="hidden"
+        animate="visible"
         className="relative overflow-hidden p-5 rounded-3xl border border-sky-100/20 dark:border-slate-800/60 bg-white/70 dark:bg-slate-900/70 backdrop-blur-md shadow-lg"
       >
-        <div className="flex items-center justify-between mb-4 border-b border-gray-100/50 dark:border-slate-800/50 pb-3">
+        <motion.div 
+          variants={rechartsItemVariants}
+          className="flex items-center justify-between mb-4 border-b border-gray-100/50 dark:border-slate-800/50 pb-3"
+        >
           <div className="flex items-center gap-2">
             <div className="p-1.5 bg-sky-500/10 text-sky-600 dark:text-sky-400 rounded-xl">
               <BarChart3 size={18} />
@@ -313,10 +368,14 @@ export const DashboardWidget: React.FC = () => {
             <CalendarDays size={13} className="text-gray-300" />
             <span>היום, {format(new Date(), 'dd/MM/yyyy')}</span>
           </div>
-        </div>
+        </motion.div>
 
         {/* Real-time Recharts Component wrapping with Right-to-Left context */}
-        <div className="h-[210px] w-full mt-2 font-sans" dir="ltr">
+        <motion.div 
+          variants={rechartsItemVariants}
+          className="h-[210px] w-full mt-2 font-sans" 
+          dir="ltr"
+        >
           <ResponsiveContainer width="100%" height="100%">
             <BarChart 
               data={chartData} 
@@ -346,8 +405,9 @@ export const DashboardWidget: React.FC = () => {
               />
               <Bar 
                 dataKey="כמות" 
-                radius={[12, 12, 0, 0]} 
                 barSize={40}
+                isAnimationActive={false}
+                shape={<AnimatedBarShape />}
               >
                 {chartData.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={entry.fillColor} />
@@ -355,8 +415,8 @@ export const DashboardWidget: React.FC = () => {
               </Bar>
             </BarChart>
           </ResponsiveContainer>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
     </motion.div>
   );
 };
