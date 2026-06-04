@@ -3,7 +3,7 @@ import { collection, addDoc, getDocs, query, where, serverTimestamp } from 'fire
 import { format } from 'date-fns';
 
 // Production Google Apps Script Web App URL acting as the primary brain
-const GAS_URL = "https://script.google.com/macros/s/AKfycbw4Q782rgsFdjehv176A_LvWWGfXNJrtw-8WEZcde5Li1D-lvEGYQtALeUD11690Omx/exec";
+const GAS_URL = "https://script.google.com/macros/s/AKfycbx-3qXwUXNANxvbTCv_G1Re7R_xveRDkhmZ0I3HLQM6x_a9NULyQwtJXd4CWIi1hrAi/exec";
 
 export interface ParseResult {
   fileName: string;
@@ -36,28 +36,21 @@ interface ComaxFile {
 }
 
 /**
- * Triggers manual email scan/sync by hitting the GET endpoint of the GAS backend.
+ * Triggers manual email scan/sync. Since the script execution is now consolidated
+ * into a single unified fetch within scanAndParseComaxOrders, this function acts
+ * as a fast-resolving helper to maintain compatibility with the UI phases.
  */
 export async function triggerManualEmailScan(): Promise<void> {
-  console.log('🚀 SabanOS: Initiating connection to Comax GAS Backend for manual trigger...', GAS_URL);
-  
-  try {
-    const response = await fetch(GAS_URL, {
-      method: 'GET',
-      mode: 'no-cors',
-      cache: 'no-cache'
-    });
-    console.log('✅ SabanOS: Manual scan trigger dispatched successfully (no-cors mode).');
-  } catch (error) {
-    console.error('❌ SabanOS Sync Error in manual trigger:', error);
-    throw new Error("לא הצלחתי להפעיל את סנכרון המיילים בגוגל אחי");
-  }
+  console.log('🚀 SabanOS: triggerManualEmailScan invoked. Consolidated workflow will trigger the GAS Script inside scanAndParseComaxOrders.');
+  return Promise.resolve();
 }
 
 /**
  * Fetches pre-parsed Comax orders directly from the production GAS Web App,
  * deduplicates them against current Firestore order history, and injects them
  * into the Firestore database in real-time. All client-side heavy lifting is removed.
+ *
+ * Configured with { redirect: 'follow' } to handle Google Apps Script 302 redirects properly without CORS blocking.
  */
 export async function scanAndParseComaxOrders(): Promise<ParseResult[]> {
   console.log('🚀 SabanOS: Initiating connection to Comax GAS Backend...');
@@ -66,8 +59,8 @@ export async function scanAndParseComaxOrders(): Promise<ParseResult[]> {
   
   try {
     const response = await fetch(GAS_URL, {
-      method: "GET",
-      cache: "no-cache"
+      method: 'GET',
+      redirect: 'follow'
     });
     
     if (!response.ok) {
