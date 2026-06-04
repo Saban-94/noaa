@@ -1,20 +1,9 @@
 import { db, auth } from '../lib/firebase';
 import { collection, addDoc, getDocs, query, where, serverTimestamp } from 'firebase/firestore';
-import { GoogleGenAI, Type } from "@google/genai";
 import { format } from 'date-fns';
 
-// Direct Apps Script API deployment URL
-const GAS_URL = "https://script.google.com/macros/s/AKfycbyqvULuPQZM3y4lKVwlv4A4HqiSp9WrrIoaVtNsIAhU0gyzRJDfGvW3hcCm63w1XWq4QA/exec";
-
-// Initialize the secure server-authenticated Gemini client (as a reliable fallback)
-const ai = new GoogleGenAI({ 
-  apiKey: process.env.GEMINI_API_KEY,
-  httpOptions: {
-    headers: {
-      'User-Agent': 'aistudio-build'
-    }
-  }
-});
+// Production Google Apps Script Web App URL acting as the primary brain
+const GAS_URL = "https://script.google.com/macros/s/AKfycbx-3qXwUXNANxvbTCv_G1Re7R_xveRDkhmZ0I3HLQM6x_a9NULyQwtJXd4CWIi1hrAi/exec";
 
 export interface ParseResult {
   fileName: string;
@@ -26,6 +15,13 @@ export interface ParseResult {
   orderNumber?: string;
 }
 
+interface ComaxParsedItem {
+  sku: string;
+  name: string;
+  qty?: string;
+  quantity?: string;
+}
+
 interface ComaxFile {
   id: string;
   name: string;
@@ -35,35 +31,36 @@ interface ComaxFile {
     customerName: string;
     orderNumber: string;
     destination: string;
-    items: Array<{ sku: string; name: string; qty?: string; quantity?: string }>;
+    items: ComaxParsedItem[];
   };
 }
 
 /**
- * Triggers a manual sync on Google Apps Script (GAS) Web App before scanning.
+ * Triggers manual email scan/sync by hitting the GET endpoint of the GAS backend.
  */
 export async function triggerManualEmailScan(): Promise<void> {
-  console.log("Triggering manual Gmail scanner on GAS URL:", GAS_URL);
+  console.log('🚀 SabanOS: Initiating connection to Comax GAS Backend for manual trigger...', GAS_URL);
   
   try {
-    await fetch(GAS_URL, {
+    const response = await fetch(GAS_URL, {
       method: 'GET',
       mode: 'no-cors',
       cache: 'no-cache'
     });
-    console.log("Trigger request dispatched successfully.");
+    console.log('✅ SabanOS: Manual scan trigger dispatched successfully (no-cors mode).');
   } catch (error) {
-    console.error("Failed to call GAS manual scan trigger:", error);
+    console.error('❌ SabanOS Sync Error in manual trigger:', error);
     throw new Error("לא הצלחתי להפעיל את סנכרון המיילים בגוגל אחי");
   }
 }
 
 /**
- * Main parser entry point: fetches parsed records directly from our custom GAS Apps Script brain,
- * saves parsed pending orders into Firestore, and supports localized failovers.
+ * Fetches pre-parsed Comax orders directly from the production GAS Web App,
+ * deduplicates them against current Firestore order history, and injects them
+ * into the Firestore database in real-time. All client-side heavy lifting is removed.
  */
 export async function scanAndParseComaxOrders(): Promise<ParseResult[]> {
-  console.log("Requesting documents payload from Apps Script brain:", GAS_URL);
+  console.log('🚀 SabanOS: Initiating connection to Comax GAS Backend...');
   
   let files: ComaxFile[] = [];
   
@@ -74,10 +71,14 @@ export async function scanAndParseComaxOrders(): Promise<ParseResult[]> {
     });
     
     if (!response.ok) {
-      throw new Error(`שגיאה בתקשורת עם שרת Google: ${response.status}`);
+      throw new Error(`שגיאה בחיבור לשרת Apps Script המרכזי: ${response.status}`);
     }
     
     const data = await response.json();
+    
+    // Telemetry requirements logging
+    console.log('📡 SabanOS: Raw response received:', data);
+    console.log('✅ SabanOS: Successfully received parsed orders:', data);
     
     if (data && data.success && Array.isArray(data.files)) {
       files = data.files;
@@ -86,20 +87,18 @@ export async function scanAndParseComaxOrders(): Promise<ParseResult[]> {
     } else if (data && Array.isArray(data.files)) {
       files = data.files;
     } else {
-      console.warn("GAS responded with unexpected structure:", data);
+      console.warn("GAS responded with unexpected payload structure:", data);
     }
   } catch (error: any) {
-    console.error("Failed to fetch documents from GAS:", error);
-    throw new Error(`שגיאה בקבלת קבצים משרת גוגל: ${error?.message || String(error)}`);
+    console.error('❌ SabanOS Sync Error:', error);
+    throw new Error(`שגיאה בקבלת קבצים לאנליזה משרת גוגל: ${error?.message || String(error)}`);
   }
-
-  console.log(`Scan: Retrieved ${files.length} document(s) from Apps Script.`);
 
   const results: ParseResult[] = [];
 
   for (const file of files) {
     try {
-      // 1. Prevent duplicate processing by checking for existing orders by unique source PDF/Email ID
+      // 1. Prevent duplicate processing by querying existing Firestore documents matching file's unique ID
       const dupQuery = query(collection(db, 'orders'), where('sourcePdfId', '==', file.id));
       const dupSnap = await getDocs(dupQuery);
 
@@ -113,40 +112,34 @@ export async function scanAndParseComaxOrders(): Promise<ParseResult[]> {
         continue;
       }
 
-      // 2. Resolve document data: Prefer pre-parsed structured result from GAS brain, otherwise fall back to client AI
-      let docData;
-      if (file.parsedResult && file.parsedResult.customerName) {
-        console.log("Using pre-parsed structured data from GAS brain for:", file.name);
-        docData = file.parsedResult;
-      } else {
-        if (!file.base64 || file.base64.length < 50) {
-          throw new Error("קובץ ה-PDF ריק ואין ברשותנו נתונים מפוענחים קודמים אחי.");
-        }
-        console.log("GAS data had no pre-parsed fields. Enacting front-end Gemini fallback parser for:", file.name);
-        docData = await parseComaxPdfWithGemini(file.base64, file.mimeType);
+      // 2. Resolve document pre-parsed details from GAS central brain
+      const docData = file.parsedResult;
+      if (!docData || !docData.customerName) {
+        throw new Error("לא נמצאו נתוני פיענוח תקינים עבור קובץ זה בשרת המרכזי אחי.");
       }
 
-      // 3. Clean and format table entries logically for SabanOS compatibility
+      // 3. Convert items array to SabanOS's newline plain text line schema
+      // Pattern format: "Quantity Product_Name SKU"
       const itemsList = docData.items || [];
       const formattedItems = itemsList
         .map(item => `${item.qty || item.quantity || 1} ${item.name || ''} ${item.sku || ''}`.trim())
         .join('\n');
 
-      // 4. Structure & write document directly to Firebase Firestore
+      // 4. Ingest the pending order to Firebase Firestore status 'Pending'
       const newOrderBody = {
         orderNumber: docData.orderNumber || `CM-${Math.floor(1000 + Math.random() * 9000)}`,
         customerName: docData.customerName || 'לקוח קומקס כללי',
         destination: docData.destination || 'נא לעדכן מיקום',
         items: formattedItems,
-        warehouse: 'החרש', // Default SabanOS warehouse
-        driverId: '',
-        status: 'pending',
+        warehouse: 'החרש', // Default warehouse according to logistics guidelines
+        driverId: '', // Unassigned defaults
+        status: 'pending', // Ingested as Pending
         date: format(new Date(), 'yyyy-MM-dd'),
         time: format(new Date(), 'HH:mm'),
-        orderFormId: file.id,
-        sourcePdfId: file.id,
+        orderFormId: file.id, // Direct connection key for logistics audit
+        sourcePdfId: file.id, // For duplicate safety constraints
         source: 'import',
-        notes: `יובא אוטומטית מסריקת מייל קומקס (מופעל ע"י Google Apps Script). קובץ: ${file.name}`,
+        notes: `יובא אוטומטית מסריקת קומקס (מופעל ע"י Google Apps Script). שם קובץ: ${file.name}`,
         createdBy: auth.currentUser?.uid || 'comax-sync-agent',
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
@@ -164,7 +157,7 @@ export async function scanAndParseComaxOrders(): Promise<ParseResult[]> {
       });
 
     } catch (err: any) {
-      console.error(`Comax sync pipeline failed for file ${file.name}:`, err);
+      console.error('❌ SabanOS Sync Error inside file ingestion loop:', err);
       results.push({
         fileName: file.name,
         fileId: file.id,
@@ -175,89 +168,4 @@ export async function scanAndParseComaxOrders(): Promise<ParseResult[]> {
   }
 
   return results;
-}
-
-/**
- * Gemini extraction pipeline fallback, utilizing strict Type structure validation schemas.
- */
-async function parseComaxPdfWithGemini(base64Data: string, mimeType: string = "application/pdf") {
-  if (!process.env.GEMINI_API_KEY) {
-    throw new Error("Missing GEMINI_API_KEY in process.env secrets.");
-  }
-
-  const pdfPart = {
-    inlineData: {
-      mimeType: mimeType || "application/pdf",
-      data: base64Data
-    }
-  };
-
-  const cleanPrompt = `
-אנא נתח את מסמך ההזמנה של Comax PDF המצורף וחלץ את הפרטים המדויקים הבאים:
-- שם לקוח (customerName) - שם לקוח כולל מספר לקוח, לדוגמה "612108( לירן/מוצקין") או שם לקוח משמעותי אחר בראש הדוח.
-- מספר הזמנה (orderNumber) - מספר אישור ההזמנה של Comax.
-- כתובת למשלוח / יעד (destination) - הכתובת הגיאוגרפית המלאה למשלוח הסחורה.
-- פריטים (items) - רשימה המכילה כמות (quantity), שם פריט בעברית (name) וקוד פריט (sku) עם 5 ספרות (לדוגמה 11501).
-
-חובה להחזיר אובייקט JSON נקי ומדויק בלבד המתאים בדיוק למבנה המבוקש. אל תכתוב שום מלל או פירוט נוסף מחוץ ל-JSON.
-`;
-
-  const response = await ai.models.generateContent({
-    model: "gemini-3.5-flash",
-    contents: [pdfPart, cleanPrompt],
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          customerName: { type: Type.STRING, description: "Hebrew customer name and optional 6-digit ERP customer code" },
-          orderNumber: { type: Type.STRING, description: "Comax documentation or confirmation number" },
-          destination: { type: Type.STRING, description: "Exact logistics delivery address" },
-          items: {
-            type: Type.ARRAY,
-            description: "Extracted items from the invoice table",
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                sku: { type: Type.STRING, description: "Exactly 5 digit item code" },
-                name: { type: Type.STRING, description: "Hebrew item label" },
-                quantity: { type: Type.STRING, description: "Quantity in numbers" }
-              },
-              required: ["sku", "name", "quantity"]
-            }
-          }
-        },
-        required: ["customerName", "orderNumber", "destination", "items"]
-      }
-    }
-  });
-
-  if (!response.text) {
-    throw new Error("לא התקבל פיענוח תקין מנתח ה-AI של Gemini");
-  }
-
-  try {
-    const rawText = response.text.trim();
-    const parsed = JSON.parse(rawText) as {
-      customerName: string;
-      orderNumber: string;
-      destination: string;
-      items: Array<{ sku: string; name: string; quantity: string }>;
-    };
-    
-    // Map 'quantity' back to our 'qty' schema for seamless downstream operations
-    return {
-      customerName: parsed.customerName,
-      orderNumber: parsed.orderNumber,
-      destination: parsed.destination,
-      items: parsed.items.map(item => ({
-        sku: item.sku,
-        name: item.name,
-        qty: item.quantity
-      }))
-    };
-  } catch (err: any) {
-    console.error("Failed to parse Gemini model response text as JSON:", response.text);
-    throw new Error("קובץ ה-PDF פוענח אך מבנה הנתונים שלו לא היה תקין.");
-  }
 }
