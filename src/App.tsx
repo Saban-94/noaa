@@ -78,6 +78,7 @@ import { NoaChat } from './components/NoaChat';
 import { initOneSignal, sendOrderNotification, requestNotificationPermission } from './services/notificationService';
 import { DeliveryImport } from './components/DeliveryImport';
 import { ComaxInboxScanner } from './components/ComaxInboxScanner';
+import { DashboardWidget } from './components/DashboardWidget';
 import { UserProfileView } from './components/UserProfile';
 import { 
   createOrder, 
@@ -1933,7 +1934,10 @@ export default function App() {
 
         <div className="space-y-4">
           {(viewMode === 'list' || viewMode === 'kanban') && (
-            <ComaxInboxScanner onAddToast={addToast} />
+            <>
+              <DashboardWidget />
+              <ComaxInboxScanner onAddToast={addToast} />
+            </>
           )}
           {viewMode === 'profile' ? (
             <UserProfileView 
