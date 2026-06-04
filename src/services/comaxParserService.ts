@@ -2,7 +2,6 @@ import { db, auth } from '../lib/firebase';
 import { collection, addDoc, getDocs, query, where, serverTimestamp } from 'firebase/firestore';
 import { GoogleGenAI, Type } from "@google/genai";
 import { format } from 'date-fns';
-import { getFileBase64, listDriveFiles } from './driveService';
 
 // Google Apps Script Web App Endpoint URL that bridges Gmail and Drive folder sync
 const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyqvULuPQZM3y4lKVwlv4A4HqiSp9WrrIoaVtNsIAhU0gyzRJDfGvW3hcCm63w1XWq4QA/exec";
@@ -27,15 +26,20 @@ export interface ParseResult {
   orderNumber?: string;
 }
 
+interface ComaxFile {
+  id: string;
+  name: string;
+  base64: string;
+}
+
 /**
- * Sends a trigger requests to Google Apps Script (GAS) to search and sync comax emails directly.
- * Due to standard GAS behavior, mode is set to 'no-cors'.
+ * Sends a trigger request to Google Apps Script (GAS) to search and sync comax emails directly.
+ * Due to standard GAS behavior on writing actions, mode is set to 'no-cors' to avoid pre-flight errors.
  */
 export async function triggerManualEmailScan(): Promise<void> {
   console.log("Triggering Google Apps Script via Web App endpoint:", GAS_WEB_APP_URL);
   
   try {
-    // We send with no-cors because Apps Script redirects don't satisfy CORS standards in browser environment
     await fetch(GAS_WEB_APP_URL, {
       method: 'GET',
       mode: 'no-cors',
@@ -43,89 +47,53 @@ export async function triggerManualEmailScan(): Promise<void> {
     });
     console.log("Successfully sent execution signal to GAS Web App (No-Cors).");
   } catch (error) {
-    console.error("Failed to call GAS Web App trigger, checking fallback:", error);
+    console.error("Failed to call GAS Web App trigger:", error);
     throw new Error("לא הצלחתי להפעיל את סנכרון המיילים בגוגל אחי");
   }
 }
 
 /**
- * Searches Google Drive to locate the "SabanOS_New_Orders" folder.
- * Uses a global search fallback to locate it in My Drive or nested under the project folder.
- */
-export async function findSabanOSFolderId(): Promise<string | null> {
-  const folderName = "SabanOS_New_Orders";
-  const apiKey = import.meta.env.NEXT_PUBLIC_GOOGLE_DRIVE_API_KEY;
-  const parentFolderId = import.meta.env.NEXT_PUBLIC_DRIVE_FOLDER_ID;
-
-  if (!apiKey) {
-    console.warn("Drive API Key is missing. Listing/Scanning documents won't work, but GAS is fineאחי.");
-    return parentFolderId || null;
-  }
-
-  // 1. Try finding 'SabanOS_New_Orders' globally in user's Drive
-  const queryGlobal = `name = '${folderName}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
-  const urlGlobal = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(queryGlobal)}&fields=files(id,name)&key=${apiKey}`;
-
-  try {
-    const response = await fetch(urlGlobal);
-    if (response.ok) {
-      const data = await response.json();
-      if (data.files && data.files.length > 0) {
-        console.log(`Successfully located global folder: ${folderName} -> ID: ${data.files[0].id}`);
-        return data.files[0].id;
-      }
-    }
-  } catch (error) {
-    console.warn("Global folder lookup returned error, falling back:", error);
-  }
-
-  // 2. Try locating it nested inside the parent directory
-  if (parentFolderId) {
-    const queryNested = `'${parentFolderId}' in parents and name = '${folderName}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
-    const urlNested = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(queryNested)}&fields=files(id,name)&key=${apiKey}`;
-    try {
-      const response = await fetch(urlNested);
-      if (response.ok) {
-        const data = await response.json();
-        if (data.files && data.files.length > 0) {
-          console.log(`Successfully located nested folder: ${folderName} -> ID: ${data.files[0].id}`);
-          return data.files[0].id;
-        }
-      }
-    } catch (error) {
-      console.warn("Nested folder lookup returned error:", error);
-    }
-  }
-
-  // 3. Fallback: Default to parentFolderId
-  console.log(`Folder '${folderName}' not found. Defaulting to parent folder/root ID.`);
-  return parentFolderId || null;
-}
-
-/**
- * Downloads PDF content from Comax folder, queries Gemini to extract order fields,
- * and saves parsed pending orders into Firestore while preventing double integration.
+ * Fetches PDF files (metadata and Base64 content) directly from the GAS Web App,
+ * queries Gemini to extract order fields, and saves parsed pending orders into Firestore.
  */
 export async function scanAndParseComaxOrders(): Promise<ParseResult[]> {
-  const folderId = await findSabanOSFolderId();
-  if (!folderId) {
-    throw new Error("לא הוגדרה תיקיית Google Drive ראשית ב-SabanOS אחי.");
+  console.log("Fetching new synced Comax PDFs from GAS Web App:", GAS_WEB_APP_URL);
+  
+  let files: ComaxFile[] = [];
+  
+  try {
+    // We send standard request with cors to fetch the JSON payload
+    const response = await fetch(GAS_WEB_APP_URL, {
+      method: 'GET',
+      cache: 'no-cache'
+    });
+    
+    if (!response.ok) {
+      throw new Error(`שגיאה בקריאת הנתונים מהמייל אחי (${response.status})`);
+    }
+    
+    const data = await response.json();
+    
+    // The structure returned by GAS is typically an array of files or wrapped in a data property
+    if (Array.isArray(data)) {
+      files = data;
+    } else if (data && Array.isArray(data.files)) {
+      files = data.files;
+    } else {
+      console.warn("GAS responded with unrecognized layout:", data);
+    }
+  } catch (error: any) {
+    console.error("Failed to fetch documents from GAS:", error);
+    throw new Error(`שגיאה בקבלת קבצים משרת גוגל: ${error?.message || String(error)}`);
   }
 
-  // 1. Retrieve files in Drive folder
-  const files = await listDriveFiles(folderId);
-  const pdfFiles = files.filter(f => 
-    f.mimeType === "application/pdf" || 
-    f.name.toLowerCase().endsWith(".pdf")
-  );
-
-  console.log(`Scan: Found ${pdfFiles.length} Comax ERP document(s) inside Drive folder.`);
+  console.log(`Scan: Retrieved ${files.length} Comax ERP document(s) from GAS Web App.`);
 
   const results: ParseResult[] = [];
 
-  for (const file of pdfFiles) {
+  for (const file of files) {
     try {
-      // 2. Prevent duplicate processing by querying existing Firestore documents
+      // 1. Prevent duplicate processing by querying existing Firestore documents
       const dupQuery = query(collection(db, 'orders'), where('sourcePdfId', '==', file.id));
       const dupSnap = await getDocs(dupQuery);
 
@@ -139,22 +107,21 @@ export async function scanAndParseComaxOrders(): Promise<ParseResult[]> {
         continue;
       }
 
-      // 3. Fetch base64 PDF content from Drive
-      const base64Data = await getFileBase64(file.id);
-      if (!base64Data || base64Data.length < 100) {
-        throw new Error("קובץ ה-PDF ריק או שלא ניתן היה להוריד אותו מ-Drive");
+      // 2. Safeguard for missing Base64 content
+      if (!file.base64 || file.base64.length < 100) {
+        throw new Error("קובץ ה-PDF ריק או שלא הורד במלואו על ידי השרת אחי.");
       }
 
-      // 4. Send document to Gemini with schema-guided extraction
-      const docData = await parseComaxPdfWithGemini(base64Data);
+      // 3. Send document to Gemini with schema-guided extraction
+      const docData = await parseComaxPdfWithGemini(file.base64);
 
-      // 5. Convert items array to SabanOS's newline plain text line schema
-      // Pattern required by SabanOS: "Quantity Product_Name SKU" or similar
+      // 4. Convert items array to SabanOS's newline plain text line schema
+      // Pattern required by SabanOS: "Quantity Product_Name SKU"
       const formattedItems = docData.items
         .map(item => `${item.quantity || 1} ${item.name || ''} ${item.sku || ''}`.trim())
         .join('\n');
 
-      // 6. Bulk append the pending order to Firebase Firestore
+      // 5. Append the pending order to Firebase Firestore
       const newOrderBody = {
         orderNumber: docData.orderNumber || `CM-${Math.floor(1000 + Math.random() * 9000)}`,
         customerName: docData.customerName || 'לקוח קומקס כללי',
