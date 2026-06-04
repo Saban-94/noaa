@@ -3,10 +3,10 @@ import { collection, addDoc, getDocs, query, where, serverTimestamp } from 'fire
 import { GoogleGenAI, Type } from "@google/genai";
 import { format } from 'date-fns';
 
-// Google Apps Script Web App Endpoint URL that bridges Gmail and Drive folder sync
-const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyqvULuPQZM3y4lKVwlv4A4HqiSp9WrrIoaVtNsIAhU0gyzRJDfGvW3hcCm63w1XWq4QA/exec";
+// Direct Apps Script API deployment URL
+const GAS_URL = "https://script.google.com/macros/s/AKfycbyqvULuPQZM3y4lKVwlv4A4HqiSp9WrrIoaVtNsIAhU0gyzRJDfGvW3hcCm63w1XWq4QA/exec";
 
-// Initialize the Gemini client using the secure client-side setup in Vite
+// Initialize the secure server-authenticated Gemini client
 const ai = new GoogleGenAI({ 
   apiKey: process.env.GEMINI_API_KEY,
   httpOptions: {
@@ -29,71 +29,71 @@ export interface ParseResult {
 interface ComaxFile {
   id: string;
   name: string;
+  mimeType: string;
   base64: string;
 }
 
 /**
- * Sends a trigger request to Google Apps Script (GAS) to search and sync comax emails directly.
- * Due to standard GAS behavior on writing actions, mode is set to 'no-cors' to avoid pre-flight errors.
+ * Triggers a manual sync on Google Apps Script (GAS) Web App before scanning.
  */
 export async function triggerManualEmailScan(): Promise<void> {
-  console.log("Triggering Google Apps Script via Web App endpoint:", GAS_WEB_APP_URL);
+  console.log("Triggering manual Gmail scanner on GAS URL:", GAS_URL);
   
   try {
-    await fetch(GAS_WEB_APP_URL, {
+    await fetch(GAS_URL, {
       method: 'GET',
       mode: 'no-cors',
       cache: 'no-cache'
     });
-    console.log("Successfully sent execution signal to GAS Web App (No-Cors).");
+    console.log("Trigger request dispatched successfully.");
   } catch (error) {
-    console.error("Failed to call GAS Web App trigger:", error);
+    console.error("Failed to call GAS manual scan trigger:", error);
     throw new Error("לא הצלחתי להפעיל את סנכרון המיילים בגוגל אחי");
   }
 }
 
 /**
- * Fetches PDF files (metadata and Base64 content) directly from the GAS Web App,
- * queries Gemini to extract order fields, and saves parsed pending orders into Firestore.
+ * Main parser entry point: fetches Base64 records directly from the GAS endpoint,
+ * runs Gemini extract on the PDFs, and safely persistent-saves them to Firestore.
  */
 export async function scanAndParseComaxOrders(): Promise<ParseResult[]> {
-  console.log("Fetching new synced Comax PDFs from GAS Web App:", GAS_WEB_APP_URL);
+  console.log("Requesting documents payload from GAS URL:", GAS_URL);
   
   let files: ComaxFile[] = [];
   
   try {
-    // We send standard request with cors to fetch the JSON payload
-    const response = await fetch(GAS_WEB_APP_URL, {
-      method: 'GET',
-      cache: 'no-cache'
+    const response = await fetch(GAS_URL, {
+      method: "GET",
+      cache: "no-cache"
     });
     
     if (!response.ok) {
-      throw new Error(`שגיאה בקריאת הנתונים מהמייל אחי (${response.status})`);
+      throw new Error(`שגיאה בתקשורת עם השרת: ${response.status}`);
     }
     
     const data = await response.json();
     
-    // The structure returned by GAS is typically an array of files or wrapped in a data property
-    if (Array.isArray(data)) {
+    if (data && data.success && Array.isArray(data.files)) {
+      files = data.files;
+    } else if (Array.isArray(data)) {
       files = data;
     } else if (data && Array.isArray(data.files)) {
       files = data.files;
     } else {
-      console.warn("GAS responded with unrecognized layout:", data);
+      console.warn("GAS responded with unexpected structure:", data);
     }
   } catch (error: any) {
     console.error("Failed to fetch documents from GAS:", error);
     throw new Error(`שגיאה בקבלת קבצים משרת גוגל: ${error?.message || String(error)}`);
   }
 
-  console.log(`Scan: Retrieved ${files.length} Comax ERP document(s) from GAS Web App.`);
+  console.log(`Scan: Retrieved ${files.length} document(s) from Apps Script.`);
 
   const results: ParseResult[] = [];
 
   for (const file of files) {
     try {
-      // 1. Prevent duplicate processing by querying existing Firestore documents
+      // 1. Prevent duplicate processing by checking for existing orders
       const dupQuery = query(collection(db, 'orders'), where('sourcePdfId', '==', file.id));
       const dupSnap = await getDocs(dupQuery);
 
@@ -107,33 +107,32 @@ export async function scanAndParseComaxOrders(): Promise<ParseResult[]> {
         continue;
       }
 
-      // 2. Safeguard for missing Base64 content
-      if (!file.base64 || file.base64.length < 100) {
+      // 2. Validate Base64 payload
+      if (!file.base64 || file.base64.length < 50) {
         throw new Error("קובץ ה-PDF ריק או שלא הורד במלואו על ידי השרת אחי.");
       }
 
-      // 3. Send document to Gemini with schema-guided extraction
-      const docData = await parseComaxPdfWithGemini(file.base64);
+      // 3. Query Gemini using the direct file.base64 and file.mimeType parameters
+      const docData = await parseComaxPdfWithGemini(file.base64, file.mimeType);
 
-      // 4. Convert items array to SabanOS's newline plain text line schema
-      // Pattern required by SabanOS: "Quantity Product_Name SKU"
+      // 4. Clean and format table entries for SabanOS compatibility
       const formattedItems = docData.items
         .map(item => `${item.quantity || 1} ${item.name || ''} ${item.sku || ''}`.trim())
         .join('\n');
 
-      // 5. Append the pending order to Firebase Firestore
+      // 5. Structure & write document to Firebase Firestore
       const newOrderBody = {
         orderNumber: docData.orderNumber || `CM-${Math.floor(1000 + Math.random() * 9000)}`,
         customerName: docData.customerName || 'לקוח קומקס כללי',
         destination: docData.destination || 'נא לעדכן מיקום',
         items: formattedItems,
-        warehouse: 'החרש', // Default warehouse according to guideline
-        driverId: '', // Unassigned by default
+        warehouse: 'החרש', // Default SabanOS warehouse
+        driverId: '',
         status: 'pending',
         date: format(new Date(), 'yyyy-MM-dd'),
         time: format(new Date(), 'HH:mm'),
-        orderFormId: file.id, // For inline preview inside SabanOS
-        sourcePdfId: file.id, // For uniqueness check
+        orderFormId: file.id,
+        sourcePdfId: file.id,
         source: 'import',
         notes: `יובא אוטומטית מסריקת מייל Comax אחי. שם קובץ: ${file.name}`,
         createdBy: auth.currentUser?.uid || 'comax-sync-agent',
@@ -167,16 +166,16 @@ export async function scanAndParseComaxOrders(): Promise<ParseResult[]> {
 }
 
 /**
- * Invokes Gemini 3.5 Flash using strict JSON schema output mapping.
+ * Gemini extraction pipeline, utilizing strict Type structure validation schemas.
  */
-async function parseComaxPdfWithGemini(base64Data: string) {
+async function parseComaxPdfWithGemini(base64Data: string, mimeType: string = "application/pdf") {
   if (!process.env.GEMINI_API_KEY) {
     throw new Error("Missing GEMINI_API_KEY in process.env secrets.");
   }
 
   const pdfPart = {
     inlineData: {
-      mimeType: "application/pdf",
+      mimeType: mimeType || "application/pdf",
       data: base64Data
     }
   };
