@@ -1,8 +1,10 @@
 {
   "name": "נועה - ניהול לוגיסטיקה ח. סבן",
-  "description": "נועה, המוח הלוגיסטי של ח. סבן חומרי בניין. מערכת חכמה לניהול הזמנות, נהגים, לקוחות ותזכורות עם אינטגרציה מלאה ל-Google Drive ו-Gemini AI.",
+  "description": "נועה, המוח הלוגיסטי של ח. סבן חומרי בניין. מערכת חכמה לניהול הזמנות, נהגים, לקוחות, ותיבות מייל Comax ERP עם סריקה ופיענוח אוטומטי מבוסס Gemini AI.",
   "requestFramePermissions": [
     "geolocation"
   ],
-  "majorCapabilities": []
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }

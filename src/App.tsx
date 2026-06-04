@@ -77,6 +77,7 @@ import { SearchSuggestions } from './components/SearchSuggestions';
 import { NoaChat } from './components/NoaChat';
 import { initOneSignal, sendOrderNotification, requestNotificationPermission } from './services/notificationService';
 import { DeliveryImport } from './components/DeliveryImport';
+import { ComaxInboxScanner } from './components/ComaxInboxScanner';
 import { UserProfileView } from './components/UserProfile';
 import { 
   createOrder, 
@@ -1937,7 +1938,10 @@ export default function App() {
               onUpdate={async (updates) => setUserProfile(updates)} 
             />
           ) : viewMode === 'import' ? (
-            <DeliveryImport />
+            <div className="space-y-6">
+              <ComaxInboxScanner onAddToast={addToast} />
+              <DeliveryImport />
+            </div>
           ) : orders.length === 0 ? (
             <EmptyState onSeed={handleSeedData} />
           ) : filteredOrders.length === 0 ? (
