@@ -1932,6 +1932,9 @@ export default function App() {
         </div>
 
         <div className="space-y-4">
+          {(viewMode === 'list' || viewMode === 'kanban') && (
+            <ComaxInboxScanner onAddToast={addToast} />
+          )}
           {viewMode === 'profile' ? (
             <UserProfileView 
               profile={userProfile} 

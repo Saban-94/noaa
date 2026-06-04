@@ -5,7 +5,7 @@ import { format } from 'date-fns';
 import { getFileBase64, listDriveFiles } from './driveService';
 
 // Google Apps Script Web App Endpoint URL that bridges Gmail and Drive folder sync
-const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzvpJb5M2tygoTicI5QLZTwnm8AdF-qPpXLCJ0g7xQj5Qrq0k_eTRjP2_hAca4HKMS7/exec";
+const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyqvULuPQZM3y4lKVwlv4A4HqiSp9WrrIoaVtNsIAhU0gyzRJDfGvW3hcCm63w1XWq4QA/exec";
 
 // Initialize the Gemini client using the secure client-side setup in Vite
 const ai = new GoogleGenAI({ 

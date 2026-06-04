@@ -20,6 +20,7 @@ export const ComaxInboxScanner: React.FC<ComaxInboxScannerProps> = ({ onAddToast
   const [scanStep, setScanStep] = useState<string>('');
   const [scanResults, setScanResults] = useState<ParseResult[]>([]);
   const [hasScanned, setHasScanned] = useState(false);
+  const [successfullyProcessed, setSuccessfullyProcessed] = useState<number>(0);
 
   const handleScan = async () => {
     if (isScanning) return;
@@ -46,6 +47,9 @@ export const ComaxInboxScanner: React.FC<ComaxInboxScannerProps> = ({ onAddToast
       setHasScanned(true);
 
       const successCount = results.filter(r => r.status === 'success').length;
+      if (successCount > 0) {
+        setSuccessfullyProcessed(prev => prev + successCount);
+      }
       const skippedCount = results.filter(r => r.status === 'skipped').length;
       const failedCount = results.filter(r => r.status === 'failed').length;
 
@@ -107,35 +111,40 @@ export const ComaxInboxScanner: React.FC<ComaxInboxScannerProps> = ({ onAddToast
         </div>
         
         {/* Premium Glassmorphic Scan Button */}
-        <motion.button
-          id="comax-scan-btn"
-          whileHover={{ scale: 1.02, y: -1 }}
-          whileTap={{ scale: 0.98 }}
-          onClick={handleScan}
-          disabled={isScanning}
-          className="relative overflow-hidden flex items-center justify-center gap-2.5 px-6 py-3.5 bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 active:from-sky-700 active:to-blue-700 text-white rounded-2xl font-black text-sm shadow-md shadow-sky-600/10 hover:shadow-sky-600/20 transition-all font-sans disabled:opacity-50 disabled:cursor-not-allowed border border-sky-500/20 backdrop-blur-sm self-start sm:self-center min-w-[240px]"
-        >
-          {isScanning ? (
-            <Loader2 className="animate-spin text-white animate-normal" size={18} />
-          ) : (
-            <CloudUpload size={18} />
-          )}
-          <span>{isScanning ? scanStep : 'סרוק הזמנות חדשות מהמייל'}</span>
-        </motion.button>
-      </div>
+        <div className="flex items-center gap-3 self-start sm:self-center">
+          <motion.button
+            id="comax-scan-btn"
+            whileHover={{ scale: 1.02, y: -1 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={handleScan}
+            disabled={isScanning}
+            className="relative overflow-hidden flex items-center justify-center gap-2.5 px-6 py-3.5 bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 active:from-sky-700 active:to-blue-700 text-white rounded-2xl font-black text-sm shadow-md shadow-sky-600/10 hover:shadow-sky-600/20 transition-all font-sans disabled:opacity-50 disabled:cursor-not-allowed border border-sky-500/20 backdrop-blur-sm min-w-[240px]"
+          >
+            {isScanning ? (
+              <Loader2 className="animate-spin text-white animate-normal" size={18} />
+            ) : (
+              <CloudUpload size={18} />
+            )}
+            <span>{isScanning ? scanStep : 'סרוק הזמנות חדשות מהמייל'}</span>
+            
+            {successfullyProcessed > 0 && (
+              <span className="absolute -top-1 -left-1 bg-green-500 text-white font-black text-[10px] w-5 h-5 flex items-center justify-center rounded-full border border-white shadow-sm shadow-green-500/30">
+                {successfullyProcessed}
+              </span>
+            )}
+          </motion.button>
 
-      {/* Explanatory Step Badge */}
-      <div className="text-xs leading-relaxed text-gray-500 dark:text-gray-400 bg-gray-50/50 dark:bg-gray-950/20 p-4 rounded-2xl border border-gray-100/10 dark:border-gray-800/10 space-y-1">
-        <div className="flex items-center gap-1.5 font-bold text-sky-600 dark:text-sky-400">
-          <Sparkles size={13} />
-          <span>איך הצינור עובד אחי?</span>
+          {successfullyProcessed > 0 && (
+            <motion.div 
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="hidden md:flex items-center gap-1 px-3 py-1 bg-green-50 dark:bg-green-950/20 border border-green-100 dark:border-green-900/30 text-green-600 dark:text-green-400 text-xs font-black rounded-xl"
+            >
+              <CheckCircle2 size={13} />
+              <span>יובאו בסה״כ: {successfullyProcessed}</span>
+            </motion.div>
+          )}
         </div>
-        <p>
-          1. תוסף ה-Google Apps Script סורק את Gmail, שולף קבצי PDF עם הנושא <strong>'שליחת מסמך בדוא"ל'</strong> ומייבא אותם ל-Drive.
-        </p>
-        <p>
-          2. לחיצה על כפתור הסריקה מפעילה את Gemini שמנתח את ה-PDF, מחלץ לקוח, פריטים וכמויות, ומזריק אותם ישירות ל-SabanOS.
-        </p>
       </div>
 
       {/* Detailed Scan Progress / Summary */}
