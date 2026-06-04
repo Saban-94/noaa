@@ -3,7 +3,7 @@ import { collection, addDoc, getDocs, query, where, serverTimestamp } from 'fire
 import { format } from 'date-fns';
 
 // Production Google Apps Script Web App URL acting as the primary brain
-const GAS_URL = "https://script.google.com/macros/s/AKfycbx-3qXwUXNANxvbTCv_G1Re7R_xveRDkhmZ0I3HLQM6x_a9NULyQwtJXd4CWIi1hrAi/exec";
+const GAS_URL = "https://script.google.com/macros/s/AKfycbyXYiwWVMUc9QsoMP7YJHjoo8qo0DjeJ1U20dcte6UVYwgtlGwJfrv_oMH0xr55u9r5/exec";
 
 export interface ParseResult {
   fileName: string;
