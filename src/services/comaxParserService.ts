@@ -58,10 +58,7 @@ export async function scanAndParseComaxOrders(): Promise<ParseResult[]> {
   let files: ComaxFile[] = [];
   
   try {
-    const response = await fetch(GAS_URL, {
-      method: 'GET',
-      redirect: 'follow'
-    });
+    const response = await fetch(GAS_URL, { redirect: 'follow' });
     
     if (!response.ok) {
       throw new Error(`שגיאה בחיבור לשרת Apps Script המרכזי: ${response.status}`);
