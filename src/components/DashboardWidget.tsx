@@ -373,48 +373,50 @@ export const DashboardWidget: React.FC = () => {
         {/* Real-time Recharts Component wrapping with Right-to-Left context */}
         <motion.div 
           variants={rechartsItemVariants}
-          className="h-[210px] w-full mt-2 font-sans" 
+          className="w-full mt-2 font-sans" 
           dir="ltr"
         >
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart 
-              data={chartData} 
-              margin={{ top: 10, right: 10, left: -20, bottom: 5 }}
-              layout="horizontal"
-            >
-              <CartesianGrid 
-                strokeDasharray="3 3" 
-                vertical={false} 
-                stroke="#e2e8f015"
-              />
-              <XAxis 
-                dataKey="שם" 
-                tickLine={false}
-                axisLine={false}
-                tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: '700' }}
-              />
-              <YAxis 
-                tickLine={false}
-                axisLine={false}
-                allowDecimals={false}
-                tick={{ fill: '#94a3b8', fontSize: 10 }}
-              />
-              <Tooltip 
-                content={<CustomTooltip />} 
-                cursor={{ fill: 'rgba(148, 163, 184, 0.04)', radius: 16 }}
-              />
-              <Bar 
-                dataKey="כמות" 
-                barSize={40}
-                isAnimationActive={false}
-                shape={<AnimatedBarShape />}
+          <div className="relative w-full h-[300px] min-h-[300px] block">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart 
+                data={chartData} 
+                margin={{ top: 10, right: 10, left: -20, bottom: 5 }}
+                layout="horizontal"
               >
-                {chartData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.fillColor} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+                <CartesianGrid 
+                  strokeDasharray="3 3" 
+                  vertical={false} 
+                  stroke="#e2e8f015"
+                />
+                <XAxis 
+                  dataKey="שם" 
+                  tickLine={false}
+                  axisLine={false}
+                  tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: '700' }}
+                />
+                <YAxis 
+                  tickLine={false}
+                  axisLine={false}
+                  allowDecimals={false}
+                  tick={{ fill: '#94a3b8', fontSize: 10 }}
+                />
+                <Tooltip 
+                  content={<CustomTooltip />} 
+                  cursor={{ fill: 'rgba(148, 163, 184, 0.04)', radius: 16 }}
+                />
+                <Bar 
+                  dataKey="כמות" 
+                  barSize={40}
+                  isAnimationActive={false}
+                  shape={<AnimatedBarShape />}
+                >
+                  {chartData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.fillColor} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </motion.div>
       </motion.div>
     </motion.div>

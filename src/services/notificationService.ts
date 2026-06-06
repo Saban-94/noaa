@@ -4,18 +4,17 @@ const ONESIGNAL_APP_ID = "546472ac-f9ab-4c6c-beb2-e41c72af9849";
 
 let isInitialized = false;
 
+// Determine if OneSignal is fully supported on the active domain
+const isEnvironmentSupported = typeof window !== 'undefined' && window.location.hostname === "sidor-ai-xi.vercel.app";
+
 export const initOneSignal = async () => {
-  if (isInitialized) return;
-  
-  // Guard against domain mismatch in development/preview environments
-  const currentHost = window.location.hostname;
-  const targetHost = "sidor-ai-xi.vercel.app";
-  
-  if (currentHost !== targetHost && currentHost !== "localhost" && !currentHost.includes("europe-west3.run.app")) {
-    console.warn(`OneSignal initialization skipped: Current domain (${currentHost}) does not match configured domain (${targetHost}).`);
+  if (!isEnvironmentSupported) {
+    console.warn(`OneSignal initialization skipped: Current domain (${window.location.hostname}) does not match configured target domain (sidor-ai-xi.vercel.app).`);
     return;
   }
 
+  if (isInitialized) return;
+  
   try {
     isInitialized = true;
     await OneSignal.init({
@@ -32,7 +31,7 @@ export const initOneSignal = async () => {
     }
     
     if (errorMessage.includes("Can only be used on")) {
-      console.warn(`OneSignal: Domain mismatch. This App ID is restricted to ${targetHost}. Push subscription will not work on this domain (${currentHost}).`);
+      console.warn(`OneSignal: Domain mismatch. This App ID is restricted to sidor-ai-xi.vercel.app. Push subscription will not work on this domain.`);
       isInitialized = true; // Mark as "done/failed" to prevent re-attempts
       return;
     }
@@ -43,6 +42,11 @@ export const initOneSignal = async () => {
 };
 
 export const requestNotificationPermission = async () => {
+  if (!isEnvironmentSupported) {
+    console.warn("OneSignal notification permission check skipped in sandbox.");
+    return false;
+  }
+  
   try {
     if (!isInitialized) await initOneSignal();
     await OneSignal.Notifications.requestPermission();
@@ -54,6 +58,11 @@ export const requestNotificationPermission = async () => {
 };
 
 export const sendOrderNotification = async (title: string, message: string) => {
+  if (!isEnvironmentSupported) {
+    console.log("🔈 Mock Safe OneSignal Notification Dispatch:", { title, message });
+    return;
+  }
+
   // Use VITE_ prefix for client-accessible env variables in Vite
   const apiKey = (import.meta as any).env.VITE_ONESIGNAL_REST_API_KEY;
 

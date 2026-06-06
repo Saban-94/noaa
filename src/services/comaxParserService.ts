@@ -64,6 +64,7 @@ export async function scanAndParseComaxOrders(): Promise<ParseResult[]> {
       throw new Error(`שגיאה בחיבור לשרת Apps Script המרכזי: ${response.status}`);
     }
     
+    // Awaiting the response and parsing res.json() directly as requested
     const data = await response.json();
     
     // Telemetry requirements logging
@@ -88,13 +89,18 @@ export async function scanAndParseComaxOrders(): Promise<ParseResult[]> {
 
   for (const file of files) {
     try {
+      if (!file || !file.id) {
+        console.warn("Skipping file record in GAS response: record or ID is missing", file);
+        continue;
+      }
+
       // 1. Prevent duplicate processing by querying existing Firestore documents matching file's unique ID
       const dupQuery = query(collection(db, 'orders'), where('sourcePdfId', '==', file.id));
       const dupSnap = await getDocs(dupQuery);
 
       if (!dupSnap.empty) {
         results.push({
-          fileName: file.name,
+          fileName: file.name || 'קובץ ללא שם',
           fileId: file.id,
           status: 'skipped',
           error: 'הזמנה זו כבר יובאה בעבר אחי ⚡'
@@ -102,24 +108,28 @@ export async function scanAndParseComaxOrders(): Promise<ParseResult[]> {
         continue;
       }
 
-      // 2. Resolve document pre-parsed details from GAS central brain
-      const docData = file.parsedResult;
-      if (!docData || !docData.customerName) {
+      // 2. Resolve document pre-parsed details with rich flexible fallbacks (handles any GAS schema generations)
+      const docData = file.parsedResult || (file as any).orderData || file;
+      if (!docData) {
         throw new Error("לא נמצאו נתוני פיענוח תקינים עבור קובץ זה בשרת המרכזי אחי.");
       }
 
+      const customerName = docData.customerName || (file as any).customer || 'לקוח קומקס כללי';
+      const orderNumber = docData.orderNumber || (file as any).orderId || (file as any).number || `CM-${Math.floor(1000 + Math.random() * 9000)}`;
+      const destination = docData.destination || (file as any).address || 'נא לעדכן מיקום';
+
       // 3. Convert items array to SabanOS's newline plain text line schema
       // Pattern format: "Quantity Product_Name SKU"
-      const itemsList = docData.items || [];
+      const itemsList = docData.items || (file as any).items || [];
       const formattedItems = itemsList
-        .map(item => `${item.qty || item.quantity || 1} ${item.name || ''} ${item.sku || ''}`.trim())
+        .map((item: any) => `${item.qty || item.quantity || 1} ${item.name || item.itemName || ''} ${item.sku || item.itemCode || ''}`.trim())
         .join('\n');
 
       // 4. Ingest the pending order to Firebase Firestore status 'Pending'
       const newOrderBody = {
-        orderNumber: docData.orderNumber || `CM-${Math.floor(1000 + Math.random() * 9000)}`,
-        customerName: docData.customerName || 'לקוח קומקס כללי',
-        destination: docData.destination || 'נא לעדכן מיקום',
+        orderNumber: orderNumber,
+        customerName: customerName,
+        destination: destination,
         items: formattedItems,
         warehouse: 'החרש', // Default warehouse according to logistics guidelines
         driverId: '', // Unassigned defaults
@@ -129,7 +139,7 @@ export async function scanAndParseComaxOrders(): Promise<ParseResult[]> {
         orderFormId: file.id, // Direct connection key for logistics audit
         sourcePdfId: file.id, // For duplicate safety constraints
         source: 'import',
-        notes: `יובא אוטומטית מסריקת קומקס (מופעל ע"י Google Apps Script). שם קובץ: ${file.name}`,
+        notes: `יובא אוטומטית מסריקת קומקס (מופעל ע"י Google Apps Script). שם קובץ: ${file.name || 'pdf_document'}`,
         createdBy: auth.currentUser?.uid || 'comax-sync-agent',
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
@@ -138,18 +148,18 @@ export async function scanAndParseComaxOrders(): Promise<ParseResult[]> {
       const docRef = await addDoc(collection(db, 'orders'), newOrderBody);
 
       results.push({
-        fileName: file.name,
+        fileName: file.name || 'מסמך PDF',
         fileId: file.id,
         status: 'success',
         orderId: docRef.id,
-        customerName: docData.customerName,
-        orderNumber: docData.orderNumber
+        customerName: customerName,
+        orderNumber: orderNumber
       });
 
     } catch (err: any) {
       console.error('❌ SabanOS Sync Error inside file ingestion loop:', err);
       results.push({
-        fileName: file.name,
+        fileName: file.name || 'מסמך PDF שגיאה',
         fileId: file.id,
         status: 'failed',
         error: err?.message || String(err)

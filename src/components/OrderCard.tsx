@@ -361,6 +361,26 @@ export const OrderCard = ({
 
   const parsedItemsCount = parseItems(order.items).length;
 
+  const isOverdue = (() => {
+    if (order.status === 'delivered' || order.status === 'cancelled') {
+      return false;
+    }
+    try {
+      if (!order.date) return false;
+      const [year, month, day] = order.date.split('-').map(Number);
+      const [hour, min] = (order.time || '23:59').split(':').map(Number);
+      
+      if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
+        const targetDate = new Date(year, month - 1, day, isNaN(hour) ? 23 : hour, isNaN(min) ? 59 : min);
+        const now = new Date();
+        return targetDate < now;
+      }
+    } catch (err) {
+      console.error("Error calculating overdue status:", err);
+    }
+    return false;
+  })();
+
   const handleQuickUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file && onUploadDoc) {
@@ -458,9 +478,20 @@ export const OrderCard = ({
 
       {/* Dynamic Status Badge Top Right */}
       <div className={cn(
-        "absolute z-10",
+        "absolute z-10 flex items-center gap-2",
         isCompact ? "top-2 right-2" : "top-4 right-4"
       )}>
+        {isOverdue && (
+          <motion.div
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: [1, 1.15, 1], opacity: 1 }}
+            transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
+            className="flex items-center justify-center p-1.5 bg-rose-50 border border-rose-200 text-rose-600 dark:bg-rose-950/40 dark:border-rose-900/50 dark:text-rose-400 rounded-full shadow-sm"
+            title="עבר זמן היעד של ההזמנה אחי!"
+          >
+            <AlertCircle size={14} className="animate-pulse flex-shrink-0" />
+          </motion.div>
+        )}
         <StatusBadge status={order.status} />
       </div>
 
@@ -599,8 +630,15 @@ export const OrderCard = ({
           </div>
 
           <div className="flex items-center justify-between text-[10px] text-gray-500 dark:text-gray-400 font-bold min-w-0">
-            <span className="flex items-center gap-1 truncate">
-              <Clock size={11} className="text-sky-500 flex-shrink-0" />
+            <span className={cn(
+              "flex items-center gap-1 truncate transition-colors duration-300",
+              isOverdue ? "text-rose-600 dark:text-rose-400 font-extrabold" : ""
+            )}>
+              {isOverdue ? (
+                <AlertCircle size={11} className="text-rose-600 dark:text-rose-400 animate-pulse flex-shrink-0" />
+              ) : (
+                <Clock size={11} className="text-sky-500 flex-shrink-0" />
+              )}
               {order.time}
             </span>
             {isPredicting ? (
