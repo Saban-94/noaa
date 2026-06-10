@@ -455,7 +455,10 @@ export const OrderCard = ({
         setIsExpanded(!isExpanded);
       }}
       className={cn(
-        "order-card bg-white/95 dark:bg-gray-900/90 backdrop-blur-sm rounded-[2rem] border border-sky-100 dark:border-gray-800 shadow-md hover:shadow-[0_22px_45px_rgba(14,165,233,0.22)] dark:hover:shadow-[0_22px_45px_rgba(56,189,248,0.12)] hover:border-sky-300 dark:hover:border-sky-500/50 transition-all duration-300 relative group cursor-pointer",
+        "order-card backdrop-blur-sm rounded-[2rem] border shadow-md transition-all duration-300 relative group cursor-pointer",
+        isOverdue 
+          ? "bg-rose-50/70 dark:bg-rose-950/20 border-rose-200 dark:border-rose-900/40 hover:shadow-[0_22px_45px_rgba(244,63,94,0.22)] dark:hover:shadow-[0_22px_45px_rgba(244,63,94,0.12)] hover:border-rose-300 dark:hover:border-rose-500/50" 
+          : "bg-white/95 dark:bg-gray-900/90 border-sky-100 dark:border-gray-800 hover:shadow-[0_22px_45px_rgba(14,165,233,0.22)] dark:hover:shadow-[0_22px_45px_rgba(56,189,248,0.12)] hover:border-sky-300 dark:hover:border-sky-500/50",
         isCompact ? "p-4" : "p-5"
       )}
     >
