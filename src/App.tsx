@@ -256,6 +256,7 @@ const Drawer = ({
               { id: 'list', label: 'לוח הזמנות', icon: LayoutList },
               { id: 'kanban', label: 'לוח קנבן', icon: Trello },
               { id: 'calendar', label: 'סידור עבודה שבועי', icon: CalendarDays },
+              { id: 'import', label: 'יבוא אקסל (Export.xls)', icon: FileSpreadsheet },
               { id: 'reports', label: 'דוח בוקר (ארכיון)', icon: FileText },
               { id: 'table', label: 'סטטוס מלאי', icon: Table },
             ].map((item) => {
@@ -501,6 +502,7 @@ export default function App() {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [pendingAlerts, setPendingAlerts] = useState<Order[]>([]);
   const [orderError, setOrderError] = useState<string | null>(null);
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [reminders, setReminders] = useState<Reminder[]>([]);
@@ -850,12 +852,37 @@ export default function App() {
         const order = change.doc.data() as Order;
         
         if (change.type === 'added') {
-          const title = 'הזמנה חדשה אחי! 🚛';
+          const title = 'הזמנה חדשה אחי! 🚨';
           const msg = `${order.customerName} - ${order.items}`;
+          
+          // 1. Trigger local toast notification
           addToast(title, msg, 'success');
           
+          // 2. Push to pendingAlerts state
+          const newAlert: Order = { id: change.doc.id, ...order } as Order;
+          setPendingAlerts(prev => {
+            if (prev.some(alert => alert.id === change.doc.id)) return prev;
+            return [...prev, newAlert];
+          });
+          
+          // 3. Send order notification via OneSignal push
+          sendOrderNotification(title, msg).catch(err => {
+            console.error("Error dispatching OneSignal notification:", err);
+          });
+          
+          // 4. Play notification sound
+          playNotification();
+          
+          // 5. System/Windows notification with requireInteraction: true
           if (Notification.permission === 'granted') {
-            new Notification(title, { body: msg });
+            try {
+              new Notification(title, { 
+                body: msg,
+                requireInteraction: true 
+              });
+            } catch (err) {
+              console.error("Native notification error:", err);
+            }
           }
         }
         
@@ -976,7 +1003,7 @@ export default function App() {
           { 
             id: 'ali', 
             name: 'עלי (משאית 🚛)', 
-            phone: '⁦+97254-2276631⁩', 
+            phone: '050-0000002', 
             vehicleType: 'truck', 
             plateNumber: '89-012-34', 
             vehicleModel: 'Scania R450', 
@@ -1150,7 +1177,7 @@ export default function App() {
           if (call.name === 'create_order') {
             const args = call.args as any;
             await createOrder(args);
-            sendOrderNotification('הזמנה חדשה ! 🚛', `${args.customerName} - ${args.items}`);
+            sendOrderNotification('הזמנה חדשה אחי! 🚛', `${args.customerName} - ${args.items}`);
           } else if (call.name === 'update_order') {
             const { orderId, ...rest } = call.args as any;
             await updateOrder(orderId, rest);
@@ -1263,19 +1290,77 @@ export default function App() {
     </div>
   );
 
+  // Render the blocking modal high-z-index:
+  const blockingAlertModal = pendingAlerts.length > 0 && (
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/85 backdrop-blur-md p-4" dir="rtl">
+      <motion.div 
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        className="w-full max-w-xl bg-white dark:bg-gray-900 border-[6px] border-rose-600 rounded-[2.5rem] overflow-hidden shadow-[0_0_80px_rgba(225,29,72,0.6)]"
+      >
+        <div className="p-6 md:p-8 flex flex-col items-center text-center space-y-6">
+          <div className="bg-rose-100 dark:bg-rose-950/50 p-5 rounded-full border-2 border-rose-200 animate-bounce">
+            <AlertCircle size={48} className="text-rose-600 dark:text-rose-400" />
+          </div>
+          
+          <div className="space-y-2">
+            <h2 className="text-2xl md:text-3xl font-black text-rose-600 dark:text-rose-400 tracking-tight font-sans">נתקבלה הזמנה חדשה אחי! 🚨</h2>
+            <p className="text-sm font-extrabold text-gray-500 dark:text-gray-400">אנא אשר את פרטי ההזמנה החדשה המופיעים מטה:</p>
+          </div>
+
+          <div className="w-full bg-gray-50 dark:bg-gray-800/60 p-5 rounded-2xl border-2 border-dashed border-rose-200 dark:border-rose-900/50 space-y-4 text-right">
+            <div>
+              <span className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest block font-mono">שם לקוח / פרויקט</span>
+              <span className="text-lg font-extrabold text-gray-950 dark:text-white block mt-0.5">{pendingAlerts[0].customerName}</span>
+            </div>
+            
+            <div className="border-t border-gray-100 dark:border-gray-800 pt-3">
+              <span className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest block font-mono">פריטים והזמנה</span>
+              <div className="text-sm font-bold text-gray-800 dark:text-gray-200 mt-1.5 whitespace-pre-wrap max-h-36 overflow-y-auto ltr:text-left leading-relaxed">
+                {pendingAlerts[0].items}
+              </div>
+            </div>
+            
+            {pendingAlerts[0].orderNumber && (
+              <div className="border-t border-gray-100 dark:border-gray-800 pt-3 flex justify-between items-center text-xs">
+                <span className="font-extrabold text-gray-400">מספר הזמנה:</span>
+                <span className="font-mono font-black text-rose-600 dark:text-rose-400">{pendingAlerts[0].orderNumber}</span>
+              </div>
+            )}
+          </div>
+
+          <button
+            onClick={() => setPendingAlerts(prev => prev.slice(1))}
+            className="w-full bg-rose-600 hover:bg-rose-700 active:scale-95 text-white py-4 px-6 rounded-2xl font-black text-lg shadow-xl shadow-rose-200 dark:shadow-none transition-all border-b-4 border-rose-800"
+          >
+            אישור וסגירה אחי ✅
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+
   if (viewMode === 'reports') {
-    return <MorningReportSystem onBack={() => setViewMode('list')} drivers={drivers} />;
+    return (
+      <>
+        {blockingAlertModal}
+        <MorningReportSystem onBack={() => setViewMode('list')} drivers={drivers} />
+      </>
+    );
   }
 
   if (viewMode === 'chat') {
     return (
-      <NoaChat 
-        chatHistory={chatHistory}
-        chatScrollRef={chatScrollRef}
-        onBack={() => setViewMode('list')}
-        onAction={handleAuraAction}
-        orders={orders}
-      />
+      <>
+        {blockingAlertModal}
+        <NoaChat 
+          chatHistory={chatHistory}
+          chatScrollRef={chatScrollRef}
+          onBack={() => setViewMode('list')}
+          onAction={handleAuraAction}
+          orders={orders}
+        />
+      </>
     );
   }
 
@@ -1324,7 +1409,9 @@ export default function App() {
   const totalOrders = filteredOrders.length;
 
   return (
-    <div className="min-h-screen bg-[#FDFDFF] flex flex-col font-sans pb-[calc(100px+env(safe-area-inset-bottom))] md:pb-0 scroll-smooth" dir="rtl">
+    <>
+      {blockingAlertModal}
+      <div className="min-h-screen bg-[#FDFDFF] flex flex-col font-sans pb-[calc(100px+env(safe-area-inset-bottom))] md:pb-0 scroll-smooth" dir="rtl">
       {/* Premium Sticky Header */}
       <header className="sticky top-0 z-[40] bg-white/90 backdrop-blur-xl border-b border-gray-100/50 pt-[env(safe-area-inset-top)] px-4 md:px-8 shadow-[0_2px_15px_rgba(0,0,0,0.02)]">
         <div className="max-w-5xl mx-auto h-16 md:h-20 flex items-center justify-between">
@@ -2109,5 +2196,6 @@ export default function App() {
       </div>
 
     </div>
+    </>
   );
 }
