@@ -256,7 +256,6 @@ const Drawer = ({
               { id: 'list', label: 'לוח הזמנות', icon: LayoutList },
               { id: 'kanban', label: 'לוח קנבן', icon: Trello },
               { id: 'calendar', label: 'סידור עבודה שבועי', icon: CalendarDays },
-              { id: 'import', label: 'יבוא אקסל (Export.xls)', icon: FileSpreadsheet },
               { id: 'reports', label: 'דוח בוקר (ארכיון)', icon: FileText },
               { id: 'table', label: 'סטטוס מלאי', icon: Table },
             ].map((item) => {
