@@ -976,7 +976,7 @@ export default function App() {
           { 
             id: 'ali', 
             name: 'עלי (משאית 🚛)', 
-            phone: '050-0000002', 
+            phone: '⁦+97254-2276631⁩', 
             vehicleType: 'truck', 
             plateNumber: '89-012-34', 
             vehicleModel: 'Scania R450', 
@@ -1150,7 +1150,7 @@ export default function App() {
           if (call.name === 'create_order') {
             const args = call.args as any;
             await createOrder(args);
-            sendOrderNotification('הזמנה חדשה אחי! 🚛', `${args.customerName} - ${args.items}`);
+            sendOrderNotification('הזמנה חדשה ! 🚛', `${args.customerName} - ${args.items}`);
           } else if (call.name === 'update_order') {
             const { orderId, ...rest } = call.args as any;
             await updateOrder(orderId, rest);
