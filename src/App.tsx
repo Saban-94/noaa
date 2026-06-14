@@ -1555,10 +1555,10 @@ export default function App() {
               <Menu size={24} className="text-gray-900" />
             </button>
             <div className="flex flex-col">
-               <h1 className="text-xl md:text-2xl font-black text-gray-900 leading-none italic font-sans tracking-tighter">SabanOS</h1>
+               <h1 className="text-xl md:text-2xl font-black text-gray-900 leading-none italic font-sans tracking-tighter">סידור</h1>
                <div className="flex items-center gap-1.5 mt-1">
                  <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.4)]" />
-                 <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Operational Mode</span>
+                 <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">לוח הזמנות</span>
                </div>
             </div>
           </div>
