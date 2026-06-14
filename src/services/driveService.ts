@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { Order } from '../types';
+
 const API_KEY = import.meta.env.NEXT_PUBLIC_GOOGLE_DRIVE_API_KEY;
 const FOLDER_ID = import.meta.env.NEXT_PUBLIC_DRIVE_FOLDER_ID;
 
@@ -241,4 +243,95 @@ export async function createCustomerFolderHierarchy(
     console.error("Error creating customer folder hierarchy אחי:", error);
     throw error;
   }
+}
+
+/**
+ * Helper to convert orders to a CSV string with Hebrew support (BOM).
+ */
+export function jsonToCsv(orders: Order[]): string {
+  const headers = [
+    'מזהה',
+    'מספר הזמנה',
+    'תאריך',
+    'שעה',
+    'שם לקוח',
+    'יעד',
+    'נהג',
+    'סטטוס',
+    'תכולה',
+    'סניף מחסן',
+    'הערות'
+  ];
+
+  const rows = orders.map(order => [
+    order.id || '',
+    order.orderNumber || '',
+    order.date || '',
+    order.time || '',
+    order.customerName || '',
+    order.destination || '',
+    order.driverId || '',
+    order.status || '',
+    (order.items || '').replace(/"/g, '""'),
+    order.warehouse || '',
+    (order.notes || '').replace(/"/g, '""')
+  ]);
+
+  const csvContent = [
+    headers.join(','),
+    ...rows.map(row => row.map(cell => `"${cell || ''}"`).join(','))
+  ].join('\n');
+
+  // Prepend UTF-8 BOM to support Hebrew in Excel
+  return '\uFEFF' + csvContent;
+}
+
+/**
+ * Upload orders as a CSV Backup file to Google Drive.
+ */
+export async function uploadCsvBackupToDrive(orders: Order[], token: string): Promise<{ fileId: string; name: string }> {
+  const todayStr = new Date().toLocaleDateString('he-IL').replace(/\//g, '-');
+  const fileName = `גיבוי_הזמנות_${todayStr}.csv`;
+  const csvData = jsonToCsv(orders);
+
+  const metadata = {
+    name: fileName,
+    mimeType: 'text/csv'
+  };
+
+  const boundary = 'foo_bar_baz';
+  const delimiter = `\r\n--${boundary}\r\n`;
+  const closeDelimiter = `\r\n--${boundary}--`;
+
+  const multipartRequestBody =
+    delimiter +
+    'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
+    JSON.stringify(metadata) +
+    delimiter +
+    'Content-Type: text/csv; charset=UTF-8\r\n\r\n' +
+    csvData +
+    closeDelimiter;
+
+  const url = 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': `multipart/related; boundary=${boundary}`,
+    },
+    body: multipartRequestBody
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error("Failed to upload CSV backup to Google Drive:", errorText);
+    throw new Error(`שגיאת דרייב: ${response.statusText} (${response.status})`);
+  }
+
+  const result = await response.json();
+  return {
+    fileId: result.id,
+    name: result.name
+  };
 }

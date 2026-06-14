@@ -1,17 +1,23 @@
-import React, { useState } from 'react';
-import { User, Shield, Briefcase, MapPin, Save, Camera, Check } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { User, Shield, Briefcase, MapPin, Save, Camera, Check, Cloud, Clock, RefreshCw, AlertCircle, CheckCircle } from 'lucide-react';
 import { motion } from 'motion/react';
 import { UserProfile } from '../types';
 
 interface UserProfileProps {
   profile: UserProfile;
   onUpdate: (updates: Partial<UserProfile>) => Promise<void>;
+  onManualBackup?: () => Promise<void>;
+  isBackingUp?: boolean;
 }
 
-export const UserProfileView: React.FC<UserProfileProps> = ({ profile, onUpdate }) => {
+export const UserProfileView: React.FC<UserProfileProps> = ({ profile, onUpdate, onManualBackup, isBackingUp }) => {
   const [isSaving, setIsSaving] = useState(false);
   const [localProfile, setLocalProfile] = useState(profile);
   const [showSuccess, setShowSuccess] = useState(false);
+
+  useEffect(() => {
+    setLocalProfile(profile);
+  }, [profile]);
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -131,6 +137,104 @@ export const UserProfileView: React.FC<UserProfileProps> = ({ profile, onUpdate 
                     {branch === 'both' ? 'שניהם' : branch}
                   </button>
                 ))}
+              </div>
+            </div>
+
+            {/* Google Drive Backup Settings */}
+            <div className="border-t border-slate-100 pt-6">
+              <label className="flex items-center gap-2 text-xs font-black text-gray-400 uppercase tracking-wider mb-3">
+                <Cloud size={14} className="text-sky-600" /> גיבוי אוטומטי ל-Google Drive
+              </label>
+              <div className="bg-slate-50 dark:bg-gray-800/20 rounded-3xl p-5 border border-slate-100 dark:border-gray-800/40">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <span className="font-bold text-sm text-gray-700 dark:text-gray-200 block">הפעל גיבוי אוטומטי בסוף היום</span>
+                    <span className="text-xs text-gray-400 dark:text-gray-500">גיבוי מלא של כל ההזמנות במערכת לקובץ אקסל (CSV) בהתאם לשעה המוגדרת</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setLocalProfile(prev => ({
+                      ...prev,
+                      preferences: {
+                        ...prev.preferences!,
+                        backupEnabled: !prev.preferences?.backupEnabled
+                      }
+                    }))}
+                    className={`w-12 h-6 rounded-full p-1 transition-colors duration-200 focus:outline-none flex items-center ${
+                      localProfile.preferences?.backupEnabled ? 'bg-sky-600 justify-end' : 'bg-gray-300 justify-start'
+                    }`}
+                  >
+                    <div className="bg-white w-4 h-4 rounded-full shadow-md" />
+                  </button>
+                </div>
+
+                {localProfile.preferences?.backupEnabled && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    className="space-y-4 pt-3 border-t border-slate-200/50 dark:border-gray-700/50"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Clock size={16} className="text-gray-400 dark:text-gray-500" />
+                      <span className="text-xs font-bold text-gray-650 dark:text-gray-300">שעת גיבוי יומית:</span>
+                      <input
+                        type="time"
+                        value={localProfile.preferences?.backupTime || '17:00'}
+                        onChange={(e) => setLocalProfile(prev => ({
+                          ...prev,
+                          preferences: {
+                            ...prev.preferences!,
+                            backupTime: e.target.value
+                          }
+                        }))}
+                        className="bg-white dark:bg-gray-805 border border-slate-200 dark:border-gray-750 rounded-xl px-3 py-1.5 focus:outline-none focus:border-sky-500 text-sm font-black text-gray-800 dark:text-gray-150"
+                      />
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* Last Backup Status */}
+                {profile.preferences?.lastBackupTime && (
+                  <div className="mt-4 pt-3 border-t border-slate-200/50 dark:border-gray-700/50 flex items-center justify-between text-xs">
+                    <span className="text-gray-450 dark:text-gray-400">סטטוס גיבוי אחרון:</span>
+                    <div className="flex items-center gap-1.5 font-bold">
+                      {profile.preferences.lastBackupStatus === 'success' ? (
+                        <span className="text-emerald-600 dark:text-emerald-450 flex items-center gap-1">
+                          <CheckCircle size={12} /> בוצע בהצלחה
+                        </span>
+                      ) : (
+                        <span className="text-rose-500 dark:text-rose-455 flex items-center gap-1">
+                          <AlertCircle size={12} /> נכשל
+                        </span>
+                      )}
+                      <span className="text-gray-500">
+                        ({new Date(profile.preferences.lastBackupTime).toLocaleString('he-IL', {
+                          month: 'numeric',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })})
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Instant Manual Backup trigger */}
+                <div className="mt-4 pt-4 border-t border-slate-250 dark:border-gray-700/50 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={onManualBackup}
+                    disabled={isBackingUp}
+                    className="bg-white dark:bg-gray-800 hover:bg-sky-50 dark:hover:bg-sky-950/20 text-sky-600 dark:text-sky-450 border border-sky-100 dark:border-gray-700 hover:border-sky-200 dark:hover:border-gray-600 px-4 py-2 rounded-2xl text-xs font-black flex items-center gap-2 transition-all active:scale-95 disabled:opacity-50"
+                  >
+                    {isBackingUp ? (
+                      <RefreshCw size={13} className="animate-spin text-sky-500" />
+                    ) : (
+                      <RefreshCw size={13} />
+                    )}
+                    <span>גבה את כל ההזמנות כעת אחי</span>
+                  </button>
+                </div>
               </div>
             </div>
 

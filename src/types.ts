@@ -10,6 +10,10 @@ export interface UserProfile {
     notifications: boolean;
     theme: 'light' | 'dark';
     branch: 'החרש' | 'התלמיד' | 'both';
+    backupEnabled?: boolean;
+    backupTime?: string;
+    lastBackupStatus?: 'success' | 'failed';
+    lastBackupTime?: string;
   };
 }
 

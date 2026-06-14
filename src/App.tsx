@@ -49,7 +49,7 @@ import {
   CloudUpload
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
+import { onAuthStateChanged, User as FirebaseUser, GoogleAuthProvider } from 'firebase/auth';
 import { collection, onSnapshot, query, where, orderBy, deleteDoc, doc, getDocs } from 'firebase/firestore';
 import { 
   format, 
@@ -66,7 +66,7 @@ import {
   subMonths
 } from 'date-fns';
 import { he } from 'date-fns/locale';
-import { auth, loginWithGoogle, logout, db } from './lib/firebase';
+import { auth, loginWithGoogle, logout, db, getGoogleAccessToken } from './lib/firebase';
 import MorningReportSystem from './components/MorningReportSystem';
 import { OrderCard, StatusBadge } from './components/OrderCard';
 import { KanbanBoard } from './components/KanbanBoard';
@@ -94,7 +94,7 @@ import {
 } from './services/auraService';
 import { Order, Driver, Customer, Reminder, UserProfile, ChatMessage } from './types';
 import { useUserMemory } from './hooks/useUserMemory';
-import { uploadFileToDrive } from './services/driveService';
+import { uploadFileToDrive, uploadCsvBackupToDrive } from './services/driveService';
 import { useMobile } from './hooks/useMobile';
 import { MobileNavigation } from './components/MobileNavigation';
 
@@ -814,6 +814,138 @@ export default function App() {
     }
   };
 
+  const handleManualBackupOrders = async () => {
+    let token = getGoogleAccessToken();
+    
+    if (!token) {
+      const confirmAuth = window.confirm('כדי לגבות ל-Google Drive, יש צורך בכניסה לחשבון Google. האם ברצונך להיכנס כעת?');
+      if (!confirmAuth) return;
+      
+      try {
+        const loginResult = await loginWithGoogle();
+        const credential = GoogleAuthProvider.credentialFromResult(loginResult);
+        token = credential?.accessToken || null;
+      } catch (err) {
+        console.error("Login failed during manual backup trigger:", err);
+        addToast('התחברות נכשלה', 'לא הצלחנו להתחבר לחשבון Google אחי', 'warning');
+        return;
+      }
+    }
+
+    if (!token) {
+      addToast('שגיאת הרשאה', 'לא התקבל מפתח גישה תקין מ-Google אחי', 'warning');
+      return;
+    }
+
+    setIsBackingUp(true);
+    try {
+      addToast('גיבוי בהרצה', 'מתחיל לגבות את ההזמנות ל-Google Drive שלך...', 'info');
+      const backupResult = await uploadCsvBackupToDrive(orders, token);
+      
+      setUserProfile({
+        preferences: {
+          ...userProfile.preferences,
+          backupEnabled: userProfile.preferences?.backupEnabled ?? false,
+          backupTime: userProfile.preferences?.backupTime ?? '17:00',
+          lastBackupStatus: 'success',
+          lastBackupTime: new Date().toISOString()
+        }
+      });
+
+      addToast('גיבוי בוצע בהצלחה', `קובץ ההזמנות של SabanOS גובה ל-Google Drive! קוד קובץ: ${backupResult.fileId} 🚀`, 'success');
+    } catch (err: any) {
+      console.error("Failed to backup orders:", err);
+      
+      setUserProfile({
+        preferences: {
+          ...userProfile.preferences,
+          backupEnabled: userProfile.preferences?.backupEnabled ?? false,
+          backupTime: userProfile.preferences?.backupTime ?? '17:00',
+          lastBackupStatus: 'failed',
+          lastBackupTime: new Date().toISOString()
+        }
+      });
+
+      addToast('שגיאה בגיבוי', 'לא הצלחתי לגבות את ההזמנות ל-Google Drive אחי', 'warning');
+    } finally {
+      setIsBackingUp(false);
+    }
+  };
+
+  // --- Google Drive Auto-Backup Scheduler ---
+  useEffect(() => {
+    if (!userProfile?.preferences?.backupEnabled) return;
+
+    const interval = setInterval(async () => {
+      const now = new Date();
+      const currentHoursAndMinutes = format(now, 'HH:mm');
+      const scheduledTime = userProfile.preferences?.backupTime || '17:00';
+      const todayStr = format(now, 'yyyy-MM-dd');
+
+      const lastBackupDate = userProfile.preferences?.lastBackupTime
+        ? userProfile.preferences.lastBackupTime.split('T')[0]
+        : '';
+
+      if (currentHoursAndMinutes === scheduledTime && lastBackupDate !== todayStr) {
+        console.log(`[Backup Scheduler] Triggering automatic backup at ${scheduledTime}...`);
+        
+        const token = getGoogleAccessToken();
+        if (!token) {
+          console.warn("[Backup Scheduler] Access token not found in memory. Show notification to author.");
+          
+          setUserProfile({
+            preferences: {
+              ...userProfile.preferences,
+              lastBackupStatus: 'failed',
+              lastBackupTime: new Date().toISOString()
+            }
+          });
+
+          addToast(
+            'גיבוי אוטומטי נכשל',
+            'על מנת שנוכל לגבות אוטומטית ל-Google Drive, אנא בצע כניסה חוזרת עם Google אחי 🔑',
+            'warning'
+          );
+          return;
+        }
+
+        try {
+          await uploadCsvBackupToDrive(orders, token);
+          
+          setUserProfile({
+            preferences: {
+              ...userProfile.preferences,
+              lastBackupStatus: 'success',
+              lastBackupTime: new Date().toISOString()
+            }
+          });
+
+          addToast(
+            'גיבוי אוטומטי הושלם',
+            'המערכת ביצעה גיבוי אוטומטי של כל ההזמנות ל-Google Drive בסוף יום העבודה! 🏆',
+            'success'
+          );
+        } catch (error) {
+          console.error("[Backup Scheduler] Error executing auto-backup:", error);
+          setUserProfile({
+            preferences: {
+              ...userProfile.preferences,
+              lastBackupStatus: 'failed',
+              lastBackupTime: new Date().toISOString()
+            }
+          });
+          addToast(
+            'שגיאה בגיבוי אוטומטי',
+            'לא הצלחתי לגבות את ההזמנות אוטומטית לדרייב. ננסה שוב מחר נשמה!',
+            'warning'
+          );
+        }
+      }
+    }, 60000);
+
+    return () => clearInterval(interval);
+  }, [userProfile?.preferences?.backupEnabled, userProfile?.preferences?.backupTime, userProfile?.preferences?.lastBackupTime, orders]);
+
   // --- Auth & Init ---
   useEffect(() => {
     initOneSignal();
@@ -1423,10 +1555,10 @@ export default function App() {
               <Menu size={24} className="text-gray-900" />
             </button>
             <div className="flex flex-col">
-               <h1 className="text-xl md:text-2xl font-black text-gray-900 leading-none italic font-sans tracking-tighter">סידור</h1>
+               <h1 className="text-xl md:text-2xl font-black text-gray-900 leading-none italic font-sans tracking-tighter">SabanOS</h1>
                <div className="flex items-center gap-1.5 mt-1">
                  <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.4)]" />
-                 <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">לוח הזמנות</span>
+                 <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Operational Mode</span>
                </div>
             </div>
           </div>
@@ -2029,6 +2161,8 @@ export default function App() {
             <UserProfileView 
               profile={userProfile} 
               onUpdate={async (updates) => setUserProfile(updates)} 
+              onManualBackup={handleManualBackupOrders}
+              isBackingUp={isBackingUp}
             />
           ) : viewMode === 'import' ? (
             <div className="space-y-6">
