@@ -549,6 +549,7 @@ export default function App() {
     statusFilter: string;
     driverFilter: string;
     warehouseFilter: string;
+    timeRangeFilter?: string;
     sortBy: string;
     sortDirection: 'asc' | 'desc';
     groupByDriver: boolean;
@@ -561,6 +562,7 @@ export default function App() {
     statusFilter: 'all',
     driverFilter: 'all',
     warehouseFilter: 'all',
+    timeRangeFilter: 'all',
     sortBy: 'time',
     sortDirection: 'asc',
     groupByDriver: false,
@@ -639,6 +641,8 @@ export default function App() {
   const setDriverFilter = (v: any) => setSettings({ driverFilter: v });
   const warehouseFilter = settings.warehouseFilter;
   const setWarehouseFilter = (v: any) => setSettings({ warehouseFilter: v });
+  const timeRangeFilter = settings.timeRangeFilter || 'all';
+  const setTimeRangeFilter = (v: any) => setSettings({ timeRangeFilter: v });
   const sortBy = settings.sortBy;
   const setSortBy = (v: any) => setSettings({ sortBy: v });
   const sortDirection = settings.sortDirection;
@@ -1594,11 +1598,32 @@ export default function App() {
       const matchesDriver = driverFilter === 'all' || order.driverId === driverFilter;
       const matchesWarehouse = warehouseFilter === 'all' || order.warehouse === warehouseFilter;
       
+      let matchesTimeRange = true;
+      if (timeRangeFilter !== 'all') {
+        if (!order.time) {
+          matchesTimeRange = false;
+        } else {
+          const [hourStr] = order.time.split(':');
+          const hour = parseInt(hourStr, 10);
+          if (isNaN(hour)) {
+            matchesTimeRange = false;
+          } else {
+            if (timeRangeFilter === 'morning') {
+              matchesTimeRange = hour >= 6 && hour < 12;
+            } else if (timeRangeFilter === 'noon') {
+              matchesTimeRange = hour >= 12 && hour < 16;
+            } else if (timeRangeFilter === 'afternoon') {
+              matchesTimeRange = hour >= 16 || hour < 6;
+            }
+          }
+        }
+      }
+      
       // Feature: Hide delivered from main board, keep in reports
       const isDelivered = order.status === 'delivered';
       const shouldHideDelivered = (viewMode as string) !== 'reports' && isDelivered && statusFilter === 'all';
       
-      return matchesSearch && matchesStatus && matchesDriver && matchesWarehouse && !shouldHideDelivered;
+      return matchesSearch && matchesStatus && matchesDriver && matchesWarehouse && matchesTimeRange && !shouldHideDelivered;
     })
     .sort((a: any, b: any) => {
       let comparison = 0;
@@ -2310,6 +2335,17 @@ export default function App() {
               <option value="all">כל המחסנים</option>
               <option value="החרש">מחסן החרש 🏭</option>
               <option value="התלמיד">מחסן התלמיד 🏗️</option>
+            </select>
+
+            <select 
+              value={timeRangeFilter}
+              onChange={(e) => setTimeRangeFilter(e.target.value)}
+              className="flex-1 min-w-[140px] bg-white border border-gray-100 rounded-2xl px-4 py-3 text-sm font-bold text-gray-700 outline-none shadow-sm focus:ring-2 focus:ring-sky-600 transition-all cursor-pointer"
+            >
+              <option value="all">כל השעות ⏱️</option>
+              <option value="morning">בוקר (06:00 - 12:00) 🌅</option>
+              <option value="noon">צהריים (12:00 - 16:00) ☀️</option>
+              <option value="afternoon">אחה"צ (16:00 - 22:00) 🌇</option>
             </select>
 
             <select 

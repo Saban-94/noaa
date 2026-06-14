@@ -54,6 +54,18 @@ export const StatusBadge = ({ status }: { status: Order['status'] }) => {
   );
 };
 
+export const getTimeRangeLabel = (timeStr?: string) => {
+  if (!timeStr) return null;
+  const [hourStr] = timeStr.split(':');
+  const hour = parseInt(hourStr, 10);
+  if (!isNaN(hour)) {
+    if (hour >= 6 && hour < 12) return { label: 'בוקר', emoji: '🌅', color: 'bg-amber-50/80 dark:bg-amber-950/20 text-amber-600 dark:text-amber-400 border-amber-100/50' };
+    if (hour >= 12 && hour < 16) return { label: 'צהריים', emoji: '☀️', color: 'bg-orange-50/80 dark:bg-orange-950/20 text-orange-600 dark:text-orange-400 border-orange-100/50' };
+    if (hour >= 16 || hour < 6) return { label: 'אחה"צ', emoji: '🌇', color: 'bg-indigo-50/80 dark:bg-indigo-950/20 text-indigo-600 dark:text-indigo-400 border-indigo-100/50' };
+  }
+  return null;
+};
+
 interface OrderCardProps {
   order: Order;
   drivers: Driver[];
@@ -819,7 +831,17 @@ export const OrderCard = ({
               ) : (
                 <Clock size={11} className="text-sky-500 flex-shrink-0" />
               )}
-              {order.time}
+              <span>{order.time}</span>
+              {(() => {
+                const tr = getTimeRangeLabel(order.time);
+                if (!tr) return null;
+                return (
+                  <span className={cn("inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-lg border text-[8px] font-black leading-none ml-1", tr.color)}>
+                    <span>{tr.emoji}</span>
+                    <span>{tr.label}</span>
+                  </span>
+                );
+              })()}
             </span>
             {isPredicting ? (
               <span className="text-[9px] text-sky-600 dark:text-sky-400 animate-pulse flex-shrink-0">מחשב...</span>
