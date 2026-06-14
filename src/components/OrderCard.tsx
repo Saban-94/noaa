@@ -26,7 +26,8 @@ import {
   ChevronLeft,
   MapPin,
   Copy,
-  Check
+  Check,
+  Navigation
 } from 'lucide-react';
 import { AnimatePresence } from 'motion/react';
 import { predictOrderEta } from '../services/auraService';
@@ -381,6 +382,7 @@ export const OrderCard = ({
   const [isLocalUploading, setIsLocalUploading] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
+  const [showNavOptions, setShowNavOptions] = useState(false);
   const [isStatusPulsing, setIsStatusPulsing] = useState(false);
   const [pulseColor, setPulseColor] = useState<'emerald' | 'sky' | 'amber' | 'rose' | 'gray'>('gray');
   const prevStatusRef = useRef(order.status);
@@ -696,19 +698,81 @@ export const OrderCard = ({
                      <MapPin size={11} className="text-sky-500 flex-shrink-0" /> 
                      <span className="truncate">{highlightText(order.destination, searchQuery)}</span>
                   </p>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigator.clipboard.writeText(order.destination);
-                      setIsCopied(true);
-                      onAddToast('הועתק ללוח אחי', 'כתובת היעד הועתקה ללוח 📋', 'success');
-                      setTimeout(() => setIsCopied(false), 2000);
-                    }}
-                    className="p-1 hover:bg-sky-100/50 dark:hover:bg-sky-950/40 rounded transition-colors text-sky-600 dark:text-sky-400 flex-shrink-0"
-                    title="העתק כתובת אחי"
-                  >
-                    {isCopied ? <Check size={11} className="text-emerald-500" /> : <Copy size={11} />}
-                  </button>
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    {/* Navigation Dropdown Menu */}
+                    <div className="relative">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowNavOptions(!showNavOptions);
+                        }}
+                        className="p-1 hover:bg-sky-100/50 dark:hover:bg-sky-950/40 rounded transition-all text-sky-600 dark:text-sky-400 flex-shrink-0 flex items-center justify-center"
+                        title="ניווט ליעד אחי"
+                      >
+                        <Navigation size={11} className={showNavOptions ? "text-sky-500 scale-110 rotate-45" : ""} />
+                      </button>
+
+                      <AnimatePresence>
+                        {showNavOptions && (
+                          <>
+                            {/* Click-away backdrop */}
+                            <div 
+                              className="fixed inset-0 z-40 cursor-default" 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setShowNavOptions(false);
+                              }} 
+                            />
+                            {/* Floating Dropdown */}
+                            <motion.div
+                              initial={{ opacity: 0, scale: 0.9, y: 5 }}
+                              animate={{ opacity: 1, scale: 1, y: 0 }}
+                              exit={{ opacity: 0, scale: 0.9, y: 5 }}
+                              transition={{ duration: 0.15 }}
+                              className="absolute bottom-full left-0 mb-1.5 bg-white dark:bg-gray-800 border border-slate-100 dark:border-gray-700 shadow-xl rounded-xl p-1 z-50 flex flex-col gap-0.5 min-w-[130px] text-right"
+                              dir="rtl"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <a
+                                href={`https://waze.com/ul?q=${encodeURIComponent(order.destination)}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={() => setShowNavOptions(false)}
+                                className="flex items-center gap-2 px-2 py-1.5 hover:bg-sky-50 dark:hover:bg-sky-950/50 rounded-lg transition-colors text-[10px] font-black text-gray-750 dark:text-gray-200"
+                              >
+                                <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 flex-shrink-0" />
+                                <span>ניווט ב-Waze אחי</span>
+                              </a>
+                              <a
+                                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.destination)}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={() => setShowNavOptions(false)}
+                                className="flex items-center gap-2 px-2 py-1.5 hover:bg-sky-50 dark:hover:bg-sky-950/50 rounded-lg transition-colors text-[10px] font-black text-gray-750 dark:text-gray-200 border-t border-slate-100/50 dark:border-gray-700/30"
+                              >
+                                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 flex-shrink-0" />
+                                <span>Google Maps</span>
+                              </a>
+                            </motion.div>
+                          </>
+                        )}
+                      </AnimatePresence>
+                    </div>
+
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigator.clipboard.writeText(order.destination);
+                        setIsCopied(true);
+                        onAddToast('הועתק ללוח אחי', 'כתובת היעד הועתקה ללוח 📋', 'success');
+                        setTimeout(() => setIsCopied(false), 2000);
+                      }}
+                      className="p-1 hover:bg-sky-100/50 dark:hover:bg-sky-950/40 rounded transition-colors text-sky-600 dark:text-sky-400 flex-shrink-0"
+                      title="העתק כתובת אחי"
+                    >
+                      {isCopied ? <Check size={11} className="text-emerald-500" /> : <Copy size={11} />}
+                    </button>
+                  </div>
                 </div>
               </motion.div>
             )}
