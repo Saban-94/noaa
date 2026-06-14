@@ -80,6 +80,7 @@ import { initOneSignal, sendOrderNotification, requestNotificationPermission } f
 import { DeliveryImport } from './components/DeliveryImport';
 import { ComaxInboxScanner } from './components/ComaxInboxScanner';
 import { DashboardWidget } from './components/DashboardWidget';
+import { WarehousePreparationWidget } from './components/WarehousePreparationWidget';
 import { UserProfileView } from './components/UserProfile';
 import { 
   createOrder, 
@@ -2263,6 +2264,7 @@ export default function App() {
           {(viewMode === 'list' || viewMode === 'kanban') && (
             <>
               <DashboardWidget />
+              <WarehousePreparationWidget orders={orders} />
               <ComaxInboxScanner onAddToast={addToast} />
             </>
           )}
