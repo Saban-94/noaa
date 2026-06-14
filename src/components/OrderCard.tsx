@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'motion/react';
 import { 
   Truck, 
@@ -381,8 +381,31 @@ export const OrderCard = ({
   const [isLocalUploading, setIsLocalUploading] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
+  const [isStatusPulsing, setIsStatusPulsing] = useState(false);
+  const [pulseColor, setPulseColor] = useState<'emerald' | 'sky' | 'amber' | 'rose' | 'gray'>('gray');
+  const prevStatusRef = useRef(order.status);
 
-  const parsedItemsCount = parseItems(order.items).length;
+  useEffect(() => {
+    if (prevStatusRef.current !== order.status) {
+      let color: 'emerald' | 'sky' | 'amber' | 'rose' | 'gray' = 'gray';
+      if (order.status === 'ready') color = 'emerald';
+      else if (order.status === 'delivered') color = 'sky';
+      else if (order.status === 'preparing') color = 'amber';
+      else if (order.status === 'cancelled') color = 'rose';
+
+      setPulseColor(color);
+      setIsStatusPulsing(true);
+      const timer = setTimeout(() => {
+        setIsStatusPulsing(false);
+      }, 2500);
+      prevStatusRef.current = order.status;
+      return () => clearTimeout(timer);
+    }
+  }, [order.status]);
+
+  const parsedItems = parseItems(order.items);
+  const parsedItemsCount = parsedItems.length;
+  const totalItemsQty = parsedItems.reduce((acc, item) => acc + (parseInt(item.quantity) || 1), 0);
 
   const isOverdue = (() => {
     if (order.status === 'delivered' || order.status === 'cancelled') {
@@ -523,9 +546,17 @@ export const OrderCard = ({
         }}
         className={cn(
           "order-card backdrop-blur-sm rounded-[2rem] border shadow-md transition-all duration-300 relative group cursor-pointer bg-white dark:bg-gray-900",
-          isOverdue 
-            ? "bg-rose-50/70 dark:bg-rose-950/20 border-rose-200 dark:border-rose-900/40 hover:shadow-[0_22px_45px_rgba(244,63,94,0.22)] dark:hover:shadow-[0_22px_45px_rgba(244,63,94,0.12)] hover:border-rose-300 dark:hover:border-rose-500/50" 
-            : "bg-white/95 dark:bg-gray-900/90 border-sky-100 dark:border-gray-800 hover:shadow-[0_22px_45px_rgba(14,165,233,0.22)] dark:hover:shadow-[0_22px_45px_rgba(56,189,248,0.12)] hover:border-sky-300 dark:hover:border-sky-500/50",
+          isStatusPulsing
+            ? {
+                emerald: "ring-4 ring-emerald-500/60 border-emerald-500 bg-emerald-50/30 dark:bg-emerald-950/20 shadow-[0_0_25px_rgba(16,185,129,0.5)] scale-[1.01] animate-pulse",
+                sky: "ring-4 ring-sky-500/60 border-sky-500 bg-sky-50/30 dark:bg-sky-950/20 shadow-[0_0_25px_rgba(14,165,233,0.5)] scale-[1.01] animate-pulse",
+                amber: "ring-4 ring-amber-500/60 border-amber-500 bg-amber-50/30 dark:bg-amber-950/20 shadow-[0_0_25px_rgba(245,158,11,0.5)] scale-[1.01] animate-pulse",
+                rose: "ring-4 ring-rose-500/60 border-rose-500 bg-rose-50/30 dark:bg-rose-950/20 shadow-[0_0_25px_rgba(244,63,94,0.5)] scale-[1.01] animate-pulse",
+                gray: "ring-4 ring-slate-500/60 border-slate-500 bg-slate-50/20 dark:bg-slate-950/20 shadow-[0_0_25px_rgba(100,116,139,0.4)] scale-[1.01] animate-pulse",
+              }[pulseColor]
+            : isOverdue 
+              ? "bg-rose-50/70 dark:bg-rose-950/20 border-rose-200 dark:border-rose-900/40 hover:shadow-[0_22px_45px_rgba(244,63,94,0.22)] dark:hover:shadow-[0_22px_45px_rgba(244,63,94,0.12)] hover:border-rose-300 dark:hover:border-rose-500/50" 
+              : "bg-white/95 dark:bg-gray-900/90 border-sky-100 dark:border-gray-800 hover:shadow-[0_22px_45px_rgba(14,165,233,0.22)] dark:hover:shadow-[0_22px_45px_rgba(56,189,248,0.12)] hover:border-sky-300 dark:hover:border-sky-500/50",
           isCompact ? "p-4" : "p-5"
         )}
       >
@@ -738,6 +769,40 @@ export const OrderCard = ({
         </div>
       </div>
 
+      {/* Items Preview and Total Qty Counter - At a glance */}
+      <div 
+        onClick={(e) => {
+          e.stopPropagation();
+          setShowItems(true);
+        }}
+        className="bg-slate-50/60 dark:bg-gray-800/20 hover:bg-sky-50/50 dark:hover:bg-sky-950/20 px-3.5 py-2.5 rounded-[1.5rem] border border-slate-100/70 dark:border-gray-800/40 flex items-center justify-between gap-3 mb-4 transition-all duration-200 group/items-preview cursor-pointer shadow-[inset_0_1px_2px_rgba(0,0,0,0.01)]"
+        dir="rtl"
+      >
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <div className="w-7 h-7 bg-white dark:bg-gray-800 rounded-xl flex items-center justify-center shadow-sm border border-slate-105 dark:border-gray-700/85 group-hover/items-preview:scale-105 transition-transform flex-shrink-0">
+            <Package size={14} className="text-sky-500" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <span className="text-[8px] font-black text-slate-400 dark:text-gray-500 uppercase tracking-widest block leading-none mb-1">תכולת הזמנה</span>
+            <p className="text-xs font-bold text-gray-750 dark:text-gray-300 truncate leading-none">
+              {parsedItems.map((item, idx) => (
+                <span key={idx}>
+                  {idx > 0 && <span className="text-gray-300 dark:text-gray-700 mx-1.5 leading-none">|</span>}
+                  <span className="text-gray-950 dark:text-white font-black">{item.quantity}x</span>{' '}
+                  <span className="text-[11px] font-medium">{item.name}</span>
+                </span>
+              ))}
+              {parsedItems.length === 0 && <span className="text-gray-400 dark:text-gray-500 italic">אין פריטים רשומים אחי</span>}
+            </p>
+          </div>
+        </div>
+        
+        <div className="flex items-center justify-center gap-1 bg-gradient-to-l from-sky-500 to-sky-600 text-white font-black text-[10px] tracking-wide px-3 py-1.5 rounded-xl shadow-md transition-all group-hover/items-preview:shadow-sky-500/20 flex-shrink-0">
+          <span>סה״כ פריטים:</span>
+          <span className="text-xs font-black leading-none">{totalItemsQty}</span>
+        </div>
+      </div>
+
       <AnimatePresence initial={false}>
         {isExpanded && (
           <motion.div
@@ -756,7 +821,7 @@ export const OrderCard = ({
                     <div>
                       <span className="text-[10px] font-black text-sky-700/60 uppercase tracking-widest block leading-none mb-1">תכולת משלוח</span>
                       <p className="text-xs font-black text-gray-700 leading-none">
-                        {parsedItemsCount} פריטים רשומים
+                        תכולה: {parsedItemsCount} שורות פריטים (סה״כ {totalItemsQty} יחידות אחי)
                       </p>
                     </div>
                 </div>
@@ -775,7 +840,7 @@ export const OrderCard = ({
               >
                 <div className="flex items-center gap-2">
                   <Package size={14} className="text-sky-600" />
-                  <span className="text-[11px] font-black text-gray-700">{parsedItemsCount} פריטים</span>
+                  <span className="text-[11px] font-black text-gray-700">{parsedItemsCount} פריטים (סה״כ {totalItemsQty} יח׳)</span>
                 </div>
                 <ChevronLeft size={14} className="text-sky-400" />
               </button>
