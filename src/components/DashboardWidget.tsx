@@ -377,7 +377,7 @@ export const DashboardWidget: React.FC = () => {
           dir="ltr"
         >
           <div className="relative w-full h-[300px] min-h-[300px] block">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height={300} minWidth={0}>
               <BarChart 
                 data={chartData} 
                 margin={{ top: 10, right: 10, left: -20, bottom: 5 }}
