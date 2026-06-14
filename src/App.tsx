@@ -46,7 +46,8 @@ import {
   ListTodo,
   FileSpreadsheet,
   LayoutGrid,
-  CloudUpload
+  CloudUpload,
+  Cloud
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { onAuthStateChanged, User as FirebaseUser, GoogleAuthProvider } from 'firebase/auth';
@@ -842,13 +843,24 @@ export default function App() {
       addToast('גיבוי בהרצה', 'מתחיל לגבות את ההזמנות ל-Google Drive שלך...', 'info');
       const backupResult = await uploadCsvBackupToDrive(orders, token);
       
+      const nowStr = new Date().toISOString();
+      const newEntry = {
+        timestamp: nowStr,
+        status: 'success' as const,
+        fileName: backupResult.name
+      };
+      const currentHistory = userProfile.preferences?.backupHistory || [];
+      const updatedHistory = [newEntry, ...currentHistory].slice(0, 10);
+
       setUserProfile({
         preferences: {
           ...userProfile.preferences,
           backupEnabled: userProfile.preferences?.backupEnabled ?? false,
           backupTime: userProfile.preferences?.backupTime ?? '17:00',
           lastBackupStatus: 'success',
-          lastBackupTime: new Date().toISOString()
+          lastBackupTime: nowStr,
+          consecutiveBackupFailures: 0,
+          backupHistory: updatedHistory
         }
       });
 
@@ -856,17 +868,37 @@ export default function App() {
     } catch (err: any) {
       console.error("Failed to backup orders:", err);
       
+      const nowStr = new Date().toISOString();
+      const nextFailures = (userProfile.preferences?.consecutiveBackupFailures || 0) + 1;
+      const newEntry = {
+        timestamp: nowStr,
+        status: 'failed' as const,
+        errorMessage: err.message || 'שגיאה לא ידועה'
+      };
+      const currentHistory = userProfile.preferences?.backupHistory || [];
+      const updatedHistory = [newEntry, ...currentHistory].slice(0, 10);
+
       setUserProfile({
         preferences: {
           ...userProfile.preferences,
           backupEnabled: userProfile.preferences?.backupEnabled ?? false,
           backupTime: userProfile.preferences?.backupTime ?? '17:00',
           lastBackupStatus: 'failed',
-          lastBackupTime: new Date().toISOString()
+          lastBackupTime: nowStr,
+          consecutiveBackupFailures: nextFailures,
+          backupHistory: updatedHistory
         }
       });
 
-      addToast('שגיאה בגיבוי', 'לא הצלחתי לגבות את ההזמנות ל-Google Drive אחי', 'warning');
+      if (nextFailures >= 2) {
+        addToast(
+          '⚠️ אזהרת גיבוי חמורה',
+          `הגיבוי ל-Google Drive נכשל כבר ${nextFailures} פעמים ברצף! אנא ודא שהחיבור שלך תקין אחי.`,
+          'warning'
+        );
+      } else {
+        addToast('שגיאה בגיבוי', 'לא הצלחתי לגבות את ההזמנות ל-Google Drive אחי', 'warning');
+      }
     } finally {
       setIsBackingUp(false);
     }
@@ -890,33 +922,64 @@ export default function App() {
         console.log(`[Backup Scheduler] Triggering automatic backup at ${scheduledTime}...`);
         
         const token = getGoogleAccessToken();
+        const nowStr = new Date().toISOString();
+        
         if (!token) {
-          console.warn("[Backup Scheduler] Access token not found in memory. Show notification to author.");
+          console.warn("[Backup Scheduler] Access token not found in memory. Show notification.");
           
+          const nextFailures = (userProfile.preferences?.consecutiveBackupFailures || 0) + 1;
+          const newEntry = {
+            timestamp: nowStr,
+            status: 'failed' as const,
+            errorMessage: 'מפתח גישה של Google לא נמצא בזיכרון. יש להכנס מחדש לחשבון.'
+          };
+          const currentHistory = userProfile.preferences?.backupHistory || [];
+          const updatedHistory = [newEntry, ...currentHistory].slice(0, 10);
+
           setUserProfile({
             preferences: {
               ...userProfile.preferences,
               lastBackupStatus: 'failed',
-              lastBackupTime: new Date().toISOString()
+              lastBackupTime: nowStr,
+              consecutiveBackupFailures: nextFailures,
+              backupHistory: updatedHistory
             }
           });
 
-          addToast(
-            'גיבוי אוטומטי נכשל',
-            'על מנת שנוכל לגבות אוטומטית ל-Google Drive, אנא בצע כניסה חוזרת עם Google אחי 🔑',
-            'warning'
-          );
+          if (nextFailures >= 2) {
+            addToast(
+              '🚨 אזהרת גיבוי אוטומטי חמורה!',
+              `הגיבוי האוטומטי נכשל ${nextFailures} פעמים ברצף עקב בעיית חיבור ל-Google! סכנת אובדן מידע אחי.`,
+              'warning'
+            );
+          } else {
+            addToast(
+              'גיבוי אוטומטי נכשל',
+              'על מנת שנוכל לגבות אוטומטית ל-Google Drive, אנא בצע כניסה חוזרת עם Google אחי 🔑',
+              'warning'
+            );
+          }
           return;
         }
 
         try {
-          await uploadCsvBackupToDrive(orders, token);
+          const backupResult = await uploadCsvBackupToDrive(orders, token);
           
+          const currentHistory = userProfile.preferences?.backupHistory || [];
+          const newEntry = {
+            timestamp: nowStr,
+            status: 'success' as const,
+            fileName: backupResult.name
+          };
+          const updatedHistory = [newEntry, ...currentHistory].slice(0, 10);
+
           setUserProfile({
             preferences: {
               ...userProfile.preferences,
               lastBackupStatus: 'success',
-              lastBackupTime: new Date().toISOString()
+              lastBackupTime: nowStr,
+              consecutiveBackupFailures: 0,
+              backupHistory: updatedHistory
             }
           });
 
@@ -925,26 +988,47 @@ export default function App() {
             'המערכת ביצעה גיבוי אוטומטי של כל ההזמנות ל-Google Drive בסוף יום העבודה! 🏆',
             'success'
           );
-        } catch (error) {
+        } catch (error: any) {
           console.error("[Backup Scheduler] Error executing auto-backup:", error);
+          
+          const nextFailures = (userProfile.preferences?.consecutiveBackupFailures || 0) + 1;
+          const newEntry = {
+            timestamp: nowStr,
+            status: 'failed' as const,
+            errorMessage: error?.message || 'שגיאת דרייב כללית'
+          };
+          const currentHistory = userProfile.preferences?.backupHistory || [];
+          const updatedHistory = [newEntry, ...currentHistory].slice(0, 10);
+
           setUserProfile({
             preferences: {
               ...userProfile.preferences,
               lastBackupStatus: 'failed',
-              lastBackupTime: new Date().toISOString()
+              lastBackupTime: nowStr,
+              consecutiveBackupFailures: nextFailures,
+              backupHistory: updatedHistory
             }
           });
-          addToast(
-            'שגיאה בגיבוי אוטומטי',
-            'לא הצלחתי לגבות את ההזמנות אוטומטית לדרייב. ננסה שוב מחר נשמה!',
-            'warning'
-          );
+
+          if (nextFailures >= 2) {
+            addToast(
+              '🚨 אזהרת גיבוי אוטומטי חמורה!',
+              `הגיבוי האוטומטי ל-Google Drive נכשל כבר ${nextFailures} פעמים ברצף! סכנת אובדן מידע אחי.`,
+              'warning'
+            );
+          } else {
+            addToast(
+              'שגיאה בגיבוי אוטומטי',
+              'לא הצלחתי לגבות את ההזמנות אוטומטית לדרייב. ננסה שוב מחר נשמה!',
+              'warning'
+            );
+          }
         }
       }
     }, 60000);
 
     return () => clearInterval(interval);
-  }, [userProfile?.preferences?.backupEnabled, userProfile?.preferences?.backupTime, userProfile?.preferences?.lastBackupTime, orders]);
+  }, [userProfile?.preferences?.backupEnabled, userProfile?.preferences?.backupTime, userProfile?.preferences?.lastBackupTime, userProfile?.preferences?.consecutiveBackupFailures, userProfile?.preferences?.backupHistory, orders]);
 
   // --- Auth & Init ---
   useEffect(() => {
@@ -1820,6 +1904,31 @@ export default function App() {
             </div>
           </div>
         )}
+
+        {userProfile.preferences?.consecutiveBackupFailures !== undefined && userProfile.preferences.consecutiveBackupFailures >= 2 && (
+          <div className="mb-6 p-5 bg-rose-50 border border-rose-100 dark:border-rose-950/20 rounded-[2rem] flex flex-col md:flex-row items-center justify-between gap-4 text-rose-800 shadow-md shadow-rose-100/30 animate-pulse" dir="rtl">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-rose-500/10 rounded-2xl text-rose-600 flex-shrink-0">
+                <Cloud size={24} />
+              </div>
+              <div className="text-right">
+                <p className="text-sm font-black text-rose-950">🚨 אזהרת אבטחת מידע / גיבוי!</p>
+                <p className="text-xs text-rose-700 font-bold mt-0.5 leading-relaxed">
+                  הגיבוי האוטומטי ל-Google Drive נכשל ברציפות כבר {userProfile.preferences.consecutiveBackupFailures} פעמים. אנא התחבר מחדש ל-Google לשמירה על שלמות המידע נשמה.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                setViewMode('profile');
+              }}
+              className="bg-rose-600 hover:bg-rose-700 text-white font-black text-xs px-5 py-3 rounded-2xl transition-all shadow-md active:scale-95 whitespace-nowrap self-stretch md:self-auto text-center"
+            >
+              עדכן הגדרות ופתור בעיה ⚙️
+            </button>
+          </div>
+        )}
+
         <div className="pb-[env(safe-area-inset-bottom)]">
         {viewMode === 'list' ? (
           <div className="bg-white/80 backdrop-blur-md p-4 rounded-3xl shadow-sm border border-sky-100 mb-8">

@@ -1,5 +1,12 @@
 import { Timestamp } from 'firebase/firestore';
 
+export interface BackupHistoryEntry {
+  timestamp: string;
+  status: 'success' | 'failed';
+  fileName?: string;
+  errorMessage?: string;
+}
+
 export interface UserProfile {
   uid: string;
   displayName: string;
@@ -14,6 +21,8 @@ export interface UserProfile {
     backupTime?: string;
     lastBackupStatus?: 'success' | 'failed';
     lastBackupTime?: string;
+    backupHistory?: BackupHistoryEntry[];
+    consecutiveBackupFailures?: number;
   };
 }
 

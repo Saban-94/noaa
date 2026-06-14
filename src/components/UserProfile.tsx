@@ -235,6 +235,53 @@ export const UserProfileView: React.FC<UserProfileProps> = ({ profile, onUpdate,
                     <span>גבה את כל ההזמנות כעת אחי</span>
                   </button>
                 </div>
+
+                {/* Backup History Logs */}
+                {profile.preferences?.backupHistory && profile.preferences.backupHistory.length > 0 && (
+                  <div className="mt-4 pt-4 border-t border-slate-200 dark:border-gray-700/50 text-right">
+                    <span className="text-xs font-black text-gray-400 uppercase tracking-widest block mb-2.5">היסטוריית גיבויים אחרונים 📊</span>
+                    <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                      {profile.preferences.backupHistory.map((entry, index) => (
+                        <div 
+                          key={index}
+                          className="flex items-center justify-between gap-3 text-xs bg-white dark:bg-gray-900/40 border border-slate-100 dark:border-gray-850 p-2.5 rounded-2xl"
+                        >
+                          <div className="flex items-center gap-2.5 overflow-hidden">
+                            {entry.status === 'success' ? (
+                              <CheckCircle size={14} className="text-emerald-500 flex-shrink-0" />
+                            ) : (
+                              <AlertCircle size={14} className="text-rose-500 flex-shrink-0" />
+                            )}
+                            <div className="flex flex-col text-right overflow-hidden">
+                              <span className="font-bold text-gray-700 dark:text-gray-200">
+                                {entry.status === 'success' ? 'גיבוי הושלם בהצלחה' : 'גיבוי נכשל'}
+                              </span>
+                              {entry.status === 'success' && entry.fileName && (
+                                <span className="text-[10px] text-gray-400 truncate max-w-[150px] sm:max-w-[200px]" title={entry.fileName}>
+                                  {entry.fileName}
+                                </span>
+                              )}
+                              {entry.status === 'failed' && entry.errorMessage && (
+                                <span className="text-[10px] text-rose-500 truncate max-w-[150px] sm:max-w-[200px]" title={entry.errorMessage}>
+                                  {entry.errorMessage}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <span className="text-[10px] text-gray-450 dark:text-gray-500 font-mono flex-shrink-0">
+                            {new Date(entry.timestamp).toLocaleString('he-IL', {
+                              month: 'numeric',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              second: '2-digit'
+                            })}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
