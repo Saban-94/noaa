@@ -71,7 +71,7 @@ import { auth, loginWithGoogle, logout, db, getGoogleAccessToken } from './lib/f
 import MorningReportSystem from './components/MorningReportSystem';
 import { OrderCard, StatusBadge } from './components/OrderCard';
 import { KanbanBoard } from './components/KanbanBoard';
-import { highlightText, parseItems } from './lib/utils';
+import { highlightText, parseItems, INVENTORY_CATALOG } from './lib/utils';
 import { DriverList } from './components/DriverList';
 import { DriverCard } from './components/DriverCard';
 import { SearchSuggestions } from './components/SearchSuggestions';
@@ -1861,20 +1861,66 @@ export default function App() {
                     className="w-full bg-gray-50 border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-sky-600 outline-none resize-none" 
                   />
                   
+                  {/* Quick catalog insertions */}
+                  <div className="mt-1.5 flex flex-col gap-1.5 bg-gray-50/70 p-3 rounded-xl border border-dashed border-gray-200">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[10px] font-black text-gray-400">הוספה מהירה מקטלוג המלאי:</span>
+                      <span className="text-[8px] bg-sky-100 text-sky-700 font-extrabold px-1.5 py-0.5 rounded-full">מקל על זיהוי מק"ט אחי!</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1 max-h-[100px] overflow-y-auto custom-scrollbar">
+                      {INVENTORY_CATALOG.map(prod => (
+                        <button
+                          type="button"
+                          key={prod.sku}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            const currentVal = editingOrder ? editingOrder.items : draftOrder.items;
+                            const nextVal = `${currentVal ? currentVal + '\n' : ''}1 ${prod.keywords[0]} ${prod.sku}`;
+                            if (editingOrder) {
+                              setEditingOrder({ ...editingOrder, items: nextVal });
+                            } else {
+                              setDraftOrder({ items: nextVal });
+                            }
+                          }}
+                          className="text-[9px] font-bold bg-white border border-gray-100 text-gray-700 px-2 py-1 rounded-lg hover:bg-sky-50 hover:border-sky-200 transition-colors flex items-center gap-1 cursor-pointer shadow-2xs hover:scale-[1.02] transform duration-100 active:scale-95"
+                          title={`${prod.name} (${prod.category})`}
+                        >
+                          <span className="bg-gray-100 text-gray-500 font-medium px-1.5 py-0.5 rounded text-[8px]">{prod.sku}</span>
+                          <span>{prod.keywords[0]}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  
                   {/* Automatic Preview */}
                   {(() => {
                     const items = editingOrder ? editingOrder.items : draftOrder.items;
                     const parsed = parseItems(items);
                     if (parsed.length > 0) {
                       return (
-                        <div className="mt-2 p-3 bg-sky-50/50 rounded-xl border border-sky-100 flex flex-wrap gap-2">
-                           {parsed.map((p, i) => (
-                             <div key={i} className="bg-white px-2 py-1 rounded-lg border border-sky-200 text-[10px] font-bold text-sky-700 flex items-center gap-1 shadow-sm">
-                                <span className="bg-sky-600 text-white w-4 h-4 flex items-center justify-center rounded-full text-[8px]">{p.quantity}</span>
-                                <span>{p.name}</span>
-                                {p.sku && <span className="text-gray-400 font-medium">({p.sku})</span>}
-                             </div>
-                           ))}
+                        <div className="mt-2.5 p-3 bg-gradient-to-r from-sky-50 to-indigo-50/50 rounded-xl border border-sky-100/80 flex flex-col gap-1.5 shadow-xs">
+                          <span className="text-[9px] font-black text-sky-600 tracking-wider">פירוט פריטים מזהה אופטי (בלייב):</span>
+                          <div className="flex flex-wrap gap-1.5">
+                             {parsed.map((p, i) => {
+                               const catalogMatch = p.matchedName;
+                               return (
+                                 <div key={i} className="bg-white px-2.5 py-1.5 rounded-xl border border-sky-150 text-[10px] font-black text-sky-750 flex items-center gap-1.5 shadow-xs transition-all">
+                                    <span className="bg-gradient-to-r from-sky-600 to-indigo-600 text-white w-5 h-5 flex items-center justify-center rounded-full text-[8px] font-black shadow-sm">{p.quantity}</span>
+                                    <span className="text-gray-905">{p.name}</span>
+                                    {p.sku ? (
+                                      <span className="inline-flex items-center gap-0.5 bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded-lg border border-emerald-100/65 text-[8px] font-extrabold">
+                                        ⚡ מק"ט {p.sku} 
+                                        {catalogMatch && <span className="opacity-75 font-medium ml-0.5">({catalogMatch})</span>}
+                                      </span>
+                                    ) : (
+                                      <span className="inline-flex items-center bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded-lg border border-amber-100/45 text-[8px] font-extrabold">
+                                        ללא מק"ט
+                                      </span>
+                                    )}
+                                 </div>
+                               );
+                             })}
+                          </div>
                         </div>
                       );
                     }
