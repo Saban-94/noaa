@@ -24,7 +24,9 @@ import {
   X,
   ExternalLink,
   ChevronLeft,
-  MapPin
+  MapPin,
+  Copy,
+  Check
 } from 'lucide-react';
 import { AnimatePresence } from 'motion/react';
 import { predictOrderEta } from '../services/auraService';
@@ -339,6 +341,26 @@ const DocumentSheet = ({
   );
 };
 
+const statusMeta: Record<string, { label: string; color: string; bg: string }> = {
+  pending: { label: 'ממתין', color: 'text-gray-600 dark:text-gray-400', bg: 'bg-gray-100 dark:bg-gray-800' },
+  preparing: { label: 'בהכנה', color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-100 dark:bg-amber-900/30' },
+  ready: { label: 'מוכן', color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-100 dark:bg-emerald-900/30' },
+  delivered: { label: 'סופק', color: 'text-sky-600 dark:text-sky-400', bg: 'bg-sky-100 dark:bg-sky-900/30' },
+  cancelled: { label: 'בוטל', color: 'text-rose-600 dark:text-rose-400', bg: 'bg-rose-100 dark:bg-rose-900/30' },
+};
+
+const formatHistoryTime = (isoString: string) => {
+  try {
+    const d = new Date(isoString);
+    if (isNaN(d.getTime())) return '';
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    return `${hours}:${minutes}`;
+  } catch (e) {
+    return '';
+  }
+};
+
 export const OrderCard = ({ 
   order, 
   drivers,
@@ -358,6 +380,7 @@ export const OrderCard = ({
   const [showItems, setShowItems] = useState(false);
   const [isLocalUploading, setIsLocalUploading] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isCopied, setIsCopied] = useState(false);
 
   const parsedItemsCount = parseItems(order.items).length;
 
@@ -438,30 +461,74 @@ export const OrderCard = ({
   const driver = drivers.find(d => d.id === order.driverId);
 
   return (
-    <motion.div 
+    <motion.div
       layout
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      whileHover={{ 
-        scale: 1.018, 
-        y: -4,
-        transition: { type: 'spring', stiffness: 400, damping: 22 }
-      }}
-      onClick={(e) => {
-        const target = e.target as HTMLElement;
-        if (target.closest('button, label, input, a, select')) {
-          return;
-        }
-        setIsExpanded(!isExpanded);
-      }}
-      className={cn(
-        "order-card backdrop-blur-sm rounded-[2rem] border shadow-md transition-all duration-300 relative group cursor-pointer",
-        isOverdue 
-          ? "bg-rose-50/70 dark:bg-rose-950/20 border-rose-200 dark:border-rose-900/40 hover:shadow-[0_22px_45px_rgba(244,63,94,0.22)] dark:hover:shadow-[0_22px_45px_rgba(244,63,94,0.12)] hover:border-rose-300 dark:hover:border-rose-500/50" 
-          : "bg-white/95 dark:bg-gray-900/90 border-sky-100 dark:border-gray-800 hover:shadow-[0_22px_45px_rgba(14,165,233,0.22)] dark:hover:shadow-[0_22px_45px_rgba(56,189,248,0.12)] hover:border-sky-300 dark:hover:border-sky-500/50",
-        isCompact ? "p-4" : "p-5"
-      )}
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      transition={{ type: "spring", stiffness: 350, damping: 25 }}
+      className="relative overflow-hidden rounded-[2rem] w-full"
     >
+      {/* Swipe action background indicators */}
+      <div className="absolute inset-0 flex items-center justify-between rounded-[2rem] pointer-events-none px-6 bg-slate-100 dark:bg-gray-950/40 border border-slate-200/50 dark:border-gray-800/80">
+        {/* Left Indicator - Revealed when swiping right (drag: x > 0) */}
+        <div className="flex items-center gap-2 bg-emerald-500/10 dark:bg-emerald-500/5 px-4 py-3 rounded-2xl text-emerald-600 dark:text-emerald-400 font-extrabold text-xs border border-emerald-500/20">
+          <CheckCircle2 size={16} className="animate-bounce" />
+          <span>סמן כסופק אחי ✓</span>
+        </div>
+
+        {/* Right Indicator - Revealed when swiping left (drag: x < 0) */}
+        <div className="flex items-center gap-2 bg-rose-500/10 dark:bg-rose-500/5 px-4 py-3 rounded-2xl text-rose-600 dark:text-rose-400 font-extrabold text-xs border border-rose-500/20">
+          <span>מחיקת הזמנה ✗</span>
+          <Trash2 size={16} className="animate-pulse" />
+        </div>
+      </div>
+
+      {/* Draggable main card content */}
+      <motion.div 
+        drag="x"
+        dragDirectionLock
+        dragConstraints={{ left: -160, right: 160 }}
+        dragElastic={0.2}
+        dragTransition={{ bounceStiffness: 600, bounceDamping: 25 }}
+        onDragEnd={(_event, info) => {
+          const swipeThreshold = 130; // Threshold in pixels for activating swipe actions
+          if (info.offset.x > swipeThreshold) {
+            // Swipe Right to Complete (Status: Delivered)
+            if (order.status !== 'delivered') {
+              onUpdateStatus(order.id!, 'delivered');
+              onAddToast('הושלם בהצלחה אחי', `${order.customerName} - ההזמנה סומנה כסופקה!`, 'success');
+            } else {
+              onAddToast('כבר סופק', 'ההזמנה הזו כבר סופקה אחי!', 'info');
+            }
+          } else if (info.offset.x < -swipeThreshold) {
+            // Swipe Left to Delete (Delete order)
+            if (window.confirm(`האם אתה בטוח שברצונך למחוק את ההזמנה של ${order.customerName} אחי?`)) {
+              onDelete(order.id!);
+              onAddToast('נמחק', 'ההזמנה נמחקה בהצלחה', 'info');
+            }
+          }
+        }}
+        whileHover={{ 
+          scale: 1.018, 
+          y: -4,
+          transition: { type: 'spring', stiffness: 400, damping: 22 }
+        }}
+        onClick={(e) => {
+          const target = e.target as HTMLElement;
+          if (target.closest('button, label, input, a, select')) {
+            return;
+          }
+          setIsExpanded(!isExpanded);
+        }}
+        className={cn(
+          "order-card backdrop-blur-sm rounded-[2rem] border shadow-md transition-all duration-300 relative group cursor-pointer bg-white dark:bg-gray-900",
+          isOverdue 
+            ? "bg-rose-50/70 dark:bg-rose-950/20 border-rose-200 dark:border-rose-900/40 hover:shadow-[0_22px_45px_rgba(244,63,94,0.22)] dark:hover:shadow-[0_22px_45px_rgba(244,63,94,0.12)] hover:border-rose-300 dark:hover:border-rose-500/50" 
+            : "bg-white/95 dark:bg-gray-900/90 border-sky-100 dark:border-gray-800 hover:shadow-[0_22px_45px_rgba(14,165,233,0.22)] dark:hover:shadow-[0_22px_45px_rgba(56,189,248,0.12)] hover:border-sky-300 dark:hover:border-sky-500/50",
+          isCompact ? "p-4" : "p-5"
+        )}
+      >
       <AnimatePresence>
         {isExpanded && (
           <motion.div 
@@ -593,10 +660,25 @@ export const OrderCard = ({
                 transition={{ duration: 0.25 }}
                 className="overflow-hidden"
               >
-                <p className="text-[10px] text-gray-500 dark:text-gray-400 font-bold flex items-center gap-1 truncate mt-2 border-t border-sky-100/10 pt-1.5">
-                   <MapPin size={11} className="text-sky-500 flex-shrink-0" /> 
-                   <span className="truncate">{highlightText(order.destination, searchQuery)}</span>
-                </p>
+                <div className="flex items-center justify-between gap-2 mt-2 border-t border-sky-100/10 pt-1.5 overflow-hidden">
+                  <p className="text-[10px] text-gray-500 dark:text-gray-400 font-bold flex items-center gap-1 truncate min-w-0">
+                     <MapPin size={11} className="text-sky-500 flex-shrink-0" /> 
+                     <span className="truncate">{highlightText(order.destination, searchQuery)}</span>
+                  </p>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigator.clipboard.writeText(order.destination);
+                      setIsCopied(true);
+                      onAddToast('הועתק ללוח אחי', 'כתובת היעד הועתקה ללוח 📋', 'success');
+                      setTimeout(() => setIsCopied(false), 2000);
+                    }}
+                    className="p-1 hover:bg-sky-100/50 dark:hover:bg-sky-950/40 rounded transition-colors text-sky-600 dark:text-sky-400 flex-shrink-0"
+                    title="העתק כתובת אחי"
+                  >
+                    {isCopied ? <Check size={11} className="text-emerald-500" /> : <Copy size={11} />}
+                  </button>
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
@@ -699,6 +781,49 @@ export const OrderCard = ({
               </button>
             )}
 
+            {/* Status History Timeline */}
+            <div className="bg-slate-50/50 dark:bg-gray-800/30 p-4 rounded-2xl border border-gray-100 dark:border-gray-800/80 space-y-3" dir="rtl">
+              <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
+                <Clock size={14} className="text-sky-500" />
+                <span className="text-[11px] font-black tracking-wide">קצב התקדמות והיסטוריה</span>
+              </div>
+              
+              {order.statusHistory && order.statusHistory.length > 0 ? (
+                <div className="relative border-r-2 border-dashed border-sky-100 dark:border-sky-900/40 pr-3 mr-1.5 space-y-3 pt-1">
+                  {order.statusHistory.map((entry, index) => {
+                    const meta = statusMeta[entry.status] || { label: entry.status, color: 'text-gray-600', bg: 'bg-gray-100' };
+                    const timeStr = formatHistoryTime(entry.timestamp);
+                    return (
+                      <div key={index} className="relative flex items-center justify-between group/history">
+                        {/* Dot indicator */}
+                        <span className={cn(
+                          "absolute right-[-17px] top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full border border-white dark:border-gray-900",
+                          entry.status === order.status ? "bg-sky-500 scale-125 ring-4 ring-sky-500/15" : "bg-gray-300 dark:bg-gray-700"
+                        )} />
+                        
+                        <div className="flex items-center gap-2">
+                          <span className={cn("px-2 py-0.5 rounded-md text-[10px] font-black tracking-wider leading-none", meta.bg, meta.color)}>
+                            {meta.label}
+                          </span>
+                          <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500">
+                            ע"י {entry.userName || 'מערכת'}
+                          </span>
+                        </div>
+                        
+                        <span className="text-[10px] font-mono leading-none text-gray-400 dark:text-gray-500 font-bold">
+                          {timeStr}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-[10px] font-medium text-gray-400 dark:text-gray-500 text-center py-1">
+                  אין היסטוריית סטטוס זמינה להזמנה זו אחי.
+                </div>
+              )}
+            </div>
+
             <div className={cn(
               "flex items-center gap-2 pt-2 border-t border-gray-100",
               isCompact ? "flex-wrap justify-end" : ""
@@ -799,6 +924,7 @@ export const OrderCard = ({
           <ItemsModal order={order} onClose={() => setShowItems(false)} />
         )}
       </AnimatePresence>
+      </motion.div>
     </motion.div>
   );
 };

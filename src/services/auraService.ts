@@ -8,6 +8,7 @@ import {
   query, 
   where, 
   getDocs, 
+  getDoc,
   serverTimestamp,
   orderBy,
   limit
@@ -352,12 +353,21 @@ export const noaSystemInstruction = `
 
 export const createOrder = async (orderData: Partial<Order>) => {
   if (!auth.currentUser) throw new Error('Not authenticated');
+  const initialStatus = orderData.status || 'pending';
   const fullOrder = {
     ...orderData,
-    status: orderData.status || 'pending',
+    status: initialStatus,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
     createdBy: auth.currentUser.uid,
+    statusHistory: [
+      {
+        status: initialStatus,
+        timestamp: new Date().toISOString(),
+        userId: auth.currentUser.uid,
+        userName: auth.currentUser.displayName || 'משתמש',
+      }
+    ]
   } as Order;
   
   const docRef = await addDoc(collection(db, 'orders'), fullOrder);
@@ -366,10 +376,35 @@ export const createOrder = async (orderData: Partial<Order>) => {
 
 export const updateOrder = async (orderId: string, updates: Partial<Order>) => {
   const docRef = doc(db, 'orders', orderId);
-  await updateDoc(docRef, {
+  const finalUpdates: any = {
     ...updates,
     updatedAt: serverTimestamp(),
-  });
+  };
+
+  if (updates.status) {
+    try {
+      const currentSnap = await getDoc(docRef);
+      if (currentSnap.exists()) {
+        const currentData = currentSnap.data() as Order;
+        if (currentData.status !== updates.status) {
+          const newEntry = {
+            status: updates.status,
+            timestamp: new Date().toISOString(),
+            userId: auth.currentUser?.uid || 'system',
+            userName: auth.currentUser?.displayName || 'מערכת',
+          };
+          finalUpdates.statusHistory = [
+            ...(currentData.statusHistory || []),
+            newEntry
+          ];
+        }
+      }
+    } catch (e) {
+      console.error("Error updating order status history:", e);
+    }
+  }
+
+  await updateDoc(docRef, finalUpdates);
 };
 
 export const deleteOrder = async (orderId: string) => {

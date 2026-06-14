@@ -13,6 +13,13 @@ export interface UserProfile {
   };
 }
 
+export interface StatusHistoryEntry {
+  status: 'pending' | 'preparing' | 'ready' | 'delivered' | 'cancelled';
+  timestamp: string; // ISO string
+  userId?: string;
+  userName?: string;
+}
+
 export interface Order {
   id?: string;
   orderNumber?: string;
@@ -32,6 +39,7 @@ export interface Order {
   createdBy?: string;
   source?: 'manual' | 'import' | 'chat';
   notes?: string;
+  statusHistory?: StatusHistoryEntry[];
 }
 
 export interface ChatMessage {
