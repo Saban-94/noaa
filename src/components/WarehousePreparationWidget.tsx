@@ -9,7 +9,10 @@ import {
   Layers, 
   Building2, 
   ClipboardList,
-  Info 
+  Info,
+  Scale,
+  Truck,
+  Sparkles
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Order } from '../types';
@@ -55,6 +58,7 @@ export const WarehousePreparationWidget: React.FC<WarehousePreparationWidgetProp
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
   const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>({});
+  const [showVolumeSummary, setShowVolumeSummary] = useState(true);
 
   // 1. Group & Aggregate Items
   const aggregatedItems = useMemo(() => {
@@ -115,6 +119,120 @@ export const WarehousePreparationWidget: React.FC<WarehousePreparationWidgetProp
       })
       .sort((a, b) => b.totalQuantity - a.totalQuantity);
   }, [orders, filterMode, warehouseFilter, searchQuery]);
+
+  // 2. Intelligent Daily Loading Volume Estimator (Total bags, cubic meters, and pallets)
+  const loadingVolumes = useMemo(() => {
+    let bagsCount = 0;
+    let cubicMeters = 0;
+    let bulkBags = 0;
+    let palletsCount = 0;
+    let isolatedBoards = 0;
+
+    const bagsBreakdown: { name: string; qty: number }[] = [];
+    const bulkBreakdown: { name: string; qty: number }[] = [];
+    const palletsBreakdown: { name: string; qty: number; unit: string }[] = [];
+
+    aggregatedItems.forEach(item => {
+      const nameLower = item.name.toLowerCase();
+      const qty = item.totalQuantity;
+
+      // Classify items intelligently
+      if (
+        nameLower.includes('בלוק') || 
+        nameLower.includes('איטונג') || 
+        nameLower.includes('משטח') || 
+        nameLower.includes('משטחים') ||
+        nameLower.includes('פלטה') ||
+        nameLower.includes('פלטות') ||
+        nameLower.includes('גבס') ||
+        nameLower.includes('לוח גבס') ||
+        nameLower.includes('לוחות גבס')
+      ) {
+        if (nameLower.includes('גבס') || nameLower.includes('לוח גבס') || nameLower.includes('לוחות גבס')) {
+          isolatedBoards += qty;
+          palletsBreakdown.push({ name: item.name, qty, unit: 'לוחות' });
+        } else {
+          let calculatedPallets = qty;
+          let unitText = 'משטחי';
+          if (nameLower.includes('בלוק') || nameLower.includes('איטונג')) {
+            if (!nameLower.includes('משטח') && !nameLower.includes('משטחי')) {
+              if (qty >= 40) {
+                calculatedPallets = Math.ceil(qty / 100); // approx 100 blocks = 1 pallet
+                unitText = 'משטח (מחושב)';
+              } else {
+                calculatedPallets = 1;
+                unitText = 'מארז חלקי';
+              }
+            }
+          }
+          palletsCount += calculatedPallets;
+          palletsBreakdown.push({ name: item.name, qty: calculatedPallets, unit: unitText });
+        }
+      }
+      else if (
+        nameLower.includes('חול') || 
+        nameLower.includes('סומסום') || 
+        nameLower.includes('שומשום') || 
+        nameLower.includes('חצץ') || 
+        nameLower.includes('עדש') || 
+        nameLower.includes('זיז') || 
+        nameLower.includes('טיט') ||
+        nameLower.includes('באלה') ||
+        nameLower.includes('באלות')
+      ) {
+        if (nameLower.includes('שק') || nameLower.includes('שקים') || nameLower.includes('שקית')) {
+          bagsCount += qty;
+          bagsBreakdown.push({ name: item.name, qty });
+        } else {
+          let cmd = qty;
+          if (nameLower.includes('באלה') || nameLower.includes('באלות')) {
+            bulkBags += qty;
+            cmd = qty * 0.6; // Average bulk bag is ~0.6 cubic meters
+          } else {
+            // raw quantity units for quarry materials are usually cubic meters (e.g., "5 חול" -> 5 cubic meters)
+            bulkBags += Math.ceil(qty / 0.6);
+          }
+          cubicMeters += cmd;
+          bulkBreakdown.push({ name: item.name, qty: cmd });
+        }
+      }
+      else if (
+        nameLower.includes('מלט') || 
+        nameLower.includes('טיח') || 
+        nameLower.includes('דבק') || 
+        nameLower.includes('סיד') || 
+        nameLower.includes('גיר') || 
+        nameLower.includes('צמנט') || 
+        nameLower.includes('גילר') ||
+        nameLower.includes('תרמוקיר') ||
+        nameLower.includes('הרבצה') ||
+        nameLower.includes('שק') ||
+        nameLower.includes('שקים')
+      ) {
+        bagsCount += qty;
+        bagsBreakdown.push({ name: item.name, qty });
+      }
+      else {
+        // Default to listing individual standard packaged units as bags
+        bagsCount += qty;
+        bagsBreakdown.push({ name: item.name, qty });
+      }
+    });
+
+    return {
+      bagsCount,
+      bagsWeightKg: bagsCount * 25, // average 25kg bag
+      cubicMeters: Number(cubicMeters.toFixed(1)),
+      bulkBags,
+      palletsCount,
+      isolatedBoards,
+      breakdown: {
+        bags: bagsBreakdown,
+        bulk: bulkBreakdown,
+        pallets: palletsBreakdown
+      }
+    };
+  }, [aggregatedItems]);
 
   // Status mapping for visual cues
   const statusConfig = {
@@ -247,6 +365,161 @@ export const WarehousePreparationWidget: React.FC<WarehousePreparationWidgetProp
               className="h-full bg-gradient-to-r from-sky-500 to-indigo-500 rounded-full"
             />
           </div>
+        </div>
+      )}
+
+      {/* Daily Loading Volume Summary Widget */}
+      {totalTypesCount > 0 && (
+        <div className="mb-6 bg-slate-50/50 dark:bg-gray-800/20 border border-slate-200/50 dark:border-gray-800/80 rounded-[2rem] p-5">
+          <div className="flex items-center justify-between pb-3.5 mb-4 border-b border-dashed border-gray-200 dark:border-gray-800">
+            <div className="flex items-center gap-2">
+              <span className="text-base">📊</span>
+              <span className="text-xs font-black text-gray-800 dark:text-gray-200">
+                סיכום מקוצר של סך הכל נפחי העמסה והיערכות מלאי
+                <span className="text-[10px] font-medium text-gray-400 dark:text-gray-500 mr-2">
+                  (מחושב דינמית מתוך {aggregatedItems.length} פריטים)
+                </span>
+              </span>
+            </div>
+            
+            <button
+              onClick={() => setShowVolumeSummary(!showVolumeSummary)}
+              className="px-2.5 py-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700/80 rounded-xl text-[10px] font-black hover:bg-gray-50 dark:hover:bg-gray-750 text-gray-600 dark:text-gray-300 flex items-center gap-1 transition-all cursor-pointer shadow-2xs"
+            >
+              <span>{showVolumeSummary ? 'הסתר ריכוז 🙈' : 'הצג ריכוז נפחי העמסה 📐'}</span>
+              {showVolumeSummary ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+            </button>
+          </div>
+
+          <AnimatePresence>
+            {showVolumeSummary && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="overflow-hidden"
+              >
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  
+                  {/* Card 1: Bags Summary (מערך שקים) */}
+                  <div className="bg-gradient-to-br from-indigo-50/40 to-blue-50/10 dark:from-indigo-950/5 dark:to-transparent border border-indigo-100/60 dark:border-indigo-950/25 p-4 rounded-2.5xl flex flex-col justify-between">
+                    <div>
+                      <div className="flex justify-between items-start mb-2.5">
+                        <span className="text-[11px] font-black text-indigo-700 dark:text-indigo-400">חומרי מליטה בשקים 🧱</span>
+                        <div className="p-1.5 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-xl">
+                          <Package size={14} />
+                        </div>
+                      </div>
+                      <div className="flex items-baseline gap-1.5 mb-1">
+                        <span className="text-2xl font-black text-indigo-900 dark:text-indigo-300">
+                          {loadingVolumes.bagsCount}
+                        </span>
+                        <span className="text-xs font-bold text-indigo-700/80 dark:text-indigo-400/80">שקים</span>
+                      </div>
+                      <span className="text-[9px] text-gray-400 dark:text-gray-500 font-bold block mb-3">
+                        ⚖️ משקל כולל משוער: {(loadingVolumes.bagsWeightKg / 1000).toFixed(2)} טון
+                      </span>
+                    </div>
+
+                    {/* Breakdown list */}
+                    {loadingVolumes.breakdown.bags.length > 0 ? (
+                      <div className="border-t border-indigo-100/40 dark:border-indigo-950/20 pt-2.5 space-y-1">
+                        <span className="text-[8px] font-extrabold text-indigo-600/70 block mb-1">פירוט (עד 4 מובילים):</span>
+                        {loadingVolumes.breakdown.bags.slice(0, 4).map((b, idx) => (
+                          <div key={idx} className="flex justify-between text-[10px] font-bold text-indigo-950/90 dark:text-indigo-300/80">
+                            <span className="truncate max-w-[130px] font-medium">{b.name}</span>
+                            <span className="font-extrabold text-indigo-600">x{b.qty}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-[8px] text-gray-400 select-none">אין פריטי שקים</span>
+                    )}
+                  </div>
+
+                  {/* Card 2: Bulk cubic meters (חומרי מחצבה / קוב) */}
+                  <div className="bg-gradient-to-br from-amber-50/40 to-yellow-50/10 dark:from-amber-950/5 dark:to-transparent border border-amber-100/60 dark:border-amber-950/25 p-4 rounded-2.5xl flex flex-col justify-between">
+                    <div>
+                      <div className="flex justify-between items-start mb-2.5">
+                        <span className="text-[11px] font-black text-amber-700 dark:text-amber-400">חומרי מחצבה ותפזורת ⏳</span>
+                        <div className="p-1.5 bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded-xl">
+                          <Layers size={14} />
+                        </div>
+                      </div>
+                      <div className="flex items-baseline gap-1.5 mb-1">
+                        <span className="text-2xl font-black text-amber-950 dark:text-amber-300">
+                          {loadingVolumes.cubicMeters}
+                        </span>
+                        <span className="text-xs font-bold text-amber-700/80 dark:text-amber-400/80">קוב (מ"ק)</span>
+                      </div>
+                      <span className="text-[9px] text-gray-400 dark:text-gray-500 font-bold block mb-3">
+                        🏺 שקול לסביבות {loadingVolumes.bulkBags} באלות
+                      </span>
+                    </div>
+
+                    {/* Breakdown list */}
+                    {loadingVolumes.breakdown.bulk.length > 0 ? (
+                      <div className="border-t border-amber-100/40 dark:border-amber-950/20 pt-2.5 space-y-1">
+                        <span className="text-[8px] font-extrabold text-amber-600/70 block mb-1">פירוט חומרי תפזורת:</span>
+                        {loadingVolumes.breakdown.bulk.slice(0, 4).map((b, idx) => (
+                          <div key={idx} className="flex justify-between text-[10px] font-bold text-amber-950/90 dark:text-amber-300/80">
+                            <span className="truncate max-w-[130px] font-medium">{b.name}</span>
+                            <span className="font-extrabold text-amber-600">{b.qty} קוב</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-[8px] text-gray-400 select-none">אין חומרי תפזורת או קוב</span>
+                    )}
+                  </div>
+
+                  {/* Card 3: Pallets / Drywall items (משטחים ולוחות) */}
+                  <div className="bg-gradient-to-br from-emerald-50/40 to-teal-50/10 dark:from-emerald-950/5 dark:to-transparent border border-emerald-100/60 dark:border-emerald-950/25 p-4 rounded-2.5xl flex flex-col justify-between">
+                    <div>
+                      <div className="flex justify-between items-start mb-2.5">
+                        <span className="text-[11px] font-black text-emerald-700 dark:text-emerald-400">משטחים ולוחות גבס 🏢</span>
+                        <div className="p-1.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-xl">
+                          <Building2 size={14} />
+                        </div>
+                      </div>
+                      <div className="flex items-baseline gap-1.5 mb-1">
+                        <span className="text-2xl font-black text-emerald-950 dark:text-emerald-300">
+                          {loadingVolumes.palletsCount}
+                        </span>
+                        <span className="text-xs font-bold text-emerald-700/80 dark:text-emerald-400/80">משטחים</span>
+                        {loadingVolumes.isolatedBoards > 0 && (
+                          <span className="text-[10px] text-emerald-600 font-extrabold mr-1">
+                            (+ {loadingVolumes.isolatedBoards} גבס)
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[9px] text-gray-400 dark:text-gray-500 font-bold block mb-3">
+                        🧱 המרת בלוקים ואיטונג למשטחים
+                      </span>
+                    </div>
+
+                    {/* Breakdown list */}
+                    {loadingVolumes.breakdown.pallets.length > 0 ? (
+                      <div className="border-t border-emerald-100/40 dark:border-emerald-950/20 pt-2.5 space-y-1">
+                        <span className="text-[8px] font-extrabold text-emerald-600/70 block mb-1">פירוט משטחים ולוחות המרה:</span>
+                        {loadingVolumes.breakdown.pallets.slice(0, 4).map((b, idx) => (
+                          <div key={idx} className="flex justify-between text-[10px] font-bold text-emerald-950/90 dark:text-emerald-300/80">
+                            <span className="truncate max-w-[130px] font-medium">{b.name}</span>
+                            <span className="font-extrabold text-emerald-600">
+                              {b.qty} {b.unit}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-[8px] text-gray-400 select-none">אין משטחים או לוחות</span>
+                    )}
+                  </div>
+
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       )}
 
