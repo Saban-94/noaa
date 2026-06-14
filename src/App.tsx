@@ -516,6 +516,7 @@ export default function App() {
   const [isAddingOrder, setIsAddingOrder] = useState(false);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [isUploadingDoc, setIsUploadingDoc] = useState(false);
+  const [isSavingOrder, setIsSavingOrder] = useState(false);
   const [toasts, setToasts] = useState<any[]>([]);
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const notificationAudio = useRef<HTMLAudioElement | null>(null);
@@ -1733,11 +1734,13 @@ export default function App() {
                 }}
                 onSubmit={async (e) => {
                   e.preventDefault();
+                  if (isSavingOrder) return;
+                  setIsSavingOrder(true);
                   const form = e.target as any;
                   const data = {
                     date: form.date.value,
-                    time: form.time.value,
-                    driverId: form.driver.value,
+                    time: form.time.value || format(new Date(), 'HH:mm'),
+                    driverId: form.driver.value || 'ali',
                     orderNumber: form.orderNumber.value,
                     customerName: form.customer.value,
                     destination: form.destination.value,
@@ -1745,15 +1748,23 @@ export default function App() {
                     warehouse: form.warehouse.value as any,
                   };
                   
-                  if (editingOrder) {
-                    await updateOrder(editingOrder.id!, data);
-                  } else {
-                    await createOrder(data);
-                    clearDraftOrder();
+                  try {
+                    if (editingOrder) {
+                      await updateOrder(editingOrder.id!, data);
+                      addToast('הזמנה עודכנה', `ההזמנה של ${data.customerName} עודכנה בהצלחה!`, 'success');
+                    } else {
+                      await createOrder(data);
+                      clearDraftOrder();
+                      addToast('הזמנה נוצרה', `ההזמנה של ${data.customerName} נוצרה בהצלחה! אחי 🏆`, 'success');
+                    }
+                    setIsAddingOrder(false);
+                    setEditingOrder(null);
+                  } catch (err: any) {
+                    console.error("Error saving order:", err);
+                    addToast('שגיאה בשמירה ❌', err?.message || 'לא הצלחתי לשמור את ההזמנה אחי. אנא בדוק את החיבור.', 'warning');
+                  } finally {
+                    setIsSavingOrder(false);
                   }
-                  
-                  setIsAddingOrder(false);
-                  setEditingOrder(null);
                 }}
                 className="p-6 space-y-4"
               >
@@ -1764,7 +1775,7 @@ export default function App() {
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-gray-400 mb-1">שעה</label>
-                    <input name="time" type="time" required defaultValue={editingOrder ? editingOrder.time : draftOrder.time} className="w-full bg-gray-50 border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-sky-600 outline-none" />
+                    <input name="time" type="time" defaultValue={editingOrder ? editingOrder.time : (draftOrder.time || format(new Date(), 'HH:mm'))} className="w-full bg-gray-50 border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-sky-600 outline-none" />
                   </div>
                 </div>
 
@@ -1778,8 +1789,16 @@ export default function App() {
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-gray-400 mb-1">נהג</label>
-                    <select name="driver" required defaultValue={editingOrder ? editingOrder.driverId : (draftOrder.driverId || (drivers.length > 0 ? drivers[0].id : ''))} className="w-full bg-gray-50 border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-sky-600 outline-none">
-                      {drivers.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                    <select name="driver" defaultValue={editingOrder ? editingOrder.driverId : (draftOrder.driverId || (drivers.length > 0 ? drivers[0].id : 'ali'))} className="w-full bg-gray-50 border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-sky-600 outline-none">
+                      <option value="">בחר נהג (לא חובה)</option>
+                      {drivers.length > 0 ? (
+                        drivers.map(d => <option key={d.id} value={d.id}>{d.name}</option>)
+                      ) : (
+                        <>
+                          <option value="ali">עלי (משאית 🚛)</option>
+                          <option value="hikmat">חכמת (מנוף 🏗️)</option>
+                        </>
+                      )}
                     </select>
                   </div>
                 </div>
@@ -1885,8 +1904,19 @@ export default function App() {
                       />
                     </label>
                   )}
-                  <button type="submit" className="flex-1 bg-sky-600 text-white py-4 rounded-2xl font-bold text-lg hover:bg-sky-700 transition-colors shadow-lg shadow-sky-600/20 h-[60px]">
-                    {editingOrder ? 'תעדכן לי אחי' : 'תאשר לי אחי, הכל מוכן'}
+                  <button 
+                    type="submit" 
+                    disabled={isSavingOrder}
+                    className="flex-1 bg-sky-600 text-white py-4 rounded-2xl font-bold text-lg hover:bg-sky-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors shadow-lg shadow-sky-600/20 h-[60px] flex items-center justify-center gap-2"
+                  >
+                    {isSavingOrder ? (
+                      <>
+                        <Loader2 className="animate-spin text-white" size={20} />
+                        <span>שומר כעת אחי...</span>
+                      </>
+                    ) : (
+                      editingOrder ? 'תעדכן לי אחי' : 'תאשר לי אחי, הכל מוכן'
+                    )}
                   </button>
                 </div>
               </form>
